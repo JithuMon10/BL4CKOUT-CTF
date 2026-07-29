@@ -1,5 +1,5 @@
 -- ========================================================
--- BL4CKOUT CTF Platform Database Schema
+-- BL4CKOUT CTF Platform Production Database Schema
 -- Run this script in your Supabase SQL Editor
 -- ========================================================
 
@@ -137,14 +137,17 @@ CREATE TRIGGER on_auth_user_created
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- --------------------------------------------------------
--- SAMPLE SEED DATA FOR CTF CHALLENGES
+-- INITIAL REAL CHALLENGE SEED DATA
 -- --------------------------------------------------------
 INSERT INTO public.challenges (title, category, description, points, flag, author, file_url)
 VALUES
-('The Real GOAT Debate', 'Forensics', 'My friends are locked in a civil war over Messi vs Ronaldo. I rendered the ultimate video evidence, but a toxic Reddit debate corrupted my MP4 container headers! Fix the file and witness the true legend.', 450, 'TCF{max_verstappen}', 'CyberGOAT', '/files/challenge.bin'),
-('Cyber Vault', 'Web', 'Can you bypass the quantum authentication tokens and extract the secret admin key from the high-security portal?', 250, 'BL4CKOUT{w3b_4uth_byp4ss_m4st3r}', 'ByteLord', NULL),
-('Binary Breakdown', 'Reverse', 'Reverse engineer this stripped x86-64 ELF binary to reconstruct the key validation algorithm.', 300, 'BL4CKOUT{r3v_3ng_g0d_l3v3l}', 'ZeroCool', NULL),
-('Quantum Lattice', 'Crypto', 'An encrypted communication stream was intercepted. Decode the lattice-based cipher to recover the plaintext.', 350, 'BL4CKOUT{l4tt1c3_cr4ck3d_succ3ss}', 'Alice_Crypto', NULL),
-('Buffer Overlord', 'Pwn', 'Standard stack buffer overflow challenge. Gain shell execution on the remote service port 1337.', 400, 'BL4CKOUT{pwn_th3_st4ck_l1k3_4_pr0}', 'ShellShock', NULL),
-('Hidden Signals', 'Misc', 'Steganographic data hidden within frequency spectra of an audio recording.', 150, 'BL4CKOUT{st3g0_sp3ctr0gr4m_150}', 'Spectre', NULL)
+(
+  'The Real GOAT Debate', 
+  'Forensics', 
+  'My friends are currently locked in a civil war. Friend A swears Messi is the undisputed GOAT. Friend B insists Ronaldo stands at the absolute peak of humanity. I realized both of them were completely wrong. To show them who the true, undisputed legend of modern sports really is, I rendered the ultimate video evidence... but a toxic Messi/CR7 debate on Reddit corrupted my container headers. Fix the file, play the video, and witness the true GOAT!', 
+  450, 
+  'TCF{max_verstappen}', 
+  'CyberGOAT', 
+  '/files/challenge.bin'
+)
 ON CONFLICT DO NOTHING;
