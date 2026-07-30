@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Trophy, Flag, Users, LogIn, UserPlus, LogOut, Menu, X, Shield } from 'lucide-react';
+import { Trophy, Flag, Users, LogIn, UserPlus, LogOut, Menu, X, Shield, User as UserIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 export default function Navbar() {
@@ -13,35 +13,49 @@ export default function Navbar() {
 
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [teamName, setTeamName] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    async function getUserData() {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*, teams(*)')
-          .eq('id', user.id)
-          .single();
-        setProfile(profileData);
+    async function loadUserData(sessionUser: any) {
+      if (!sessionUser) {
+        setUser(null);
+        setProfile(null);
+        setTeamName(null);
+        return;
+      }
+
+      setUser(sessionUser);
+
+      // Clean single query for profile (no relationship ambiguity)
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', sessionUser.id)
+        .maybeSingle();
+
+      setProfile(profileData);
+
+      if (profileData?.team_id) {
+        const { data: teamData } = await supabase
+          .from('teams')
+          .select('name')
+          .eq('id', profileData.team_id)
+          .maybeSingle();
+        setTeamName(teamData?.name || null);
+      } else {
+        setTeamName(null);
       }
     }
-    getUserData();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*, teams(*)')
-          .eq('id', session.user.id)
-          .single();
-        setProfile(profileData);
-      } else {
-        setProfile(null);
-      }
+    // Initial check
+    supabase.auth.getUser().then(({ data: { user: currentUser } }) => {
+      loadUserData(currentUser);
+    });
+
+    // Auth listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      loadUserData(session?.user ?? null);
     });
 
     return () => {
@@ -53,11 +67,13 @@ export default function Navbar() {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
+    setTeamName(null);
     setMobileOpen(false);
     router.push('/');
   };
 
   const isAdmin = profile?.role === 'admin';
+  const usernameDisplay = profile?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'User';
 
   const navLinks = [
     { name: 'Challenges', href: '/challenges', icon: Flag },
@@ -117,15 +133,27 @@ export default function Navbar() {
         <div className="flex items-center gap-2">
           {user ? (
             <div className="hidden md:flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm font-medium text-zinc-300">{profile?.username || 'User'}</p>
-                {profile?.teams?.name && (
-                  <p className="text-xs text-zinc-600">{profile.teams.name}</p>
-                )}
-              </div>
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 text-right hover:opacity-80 transition-opacity"
+                title="View Profile"
+              >
+                <div className="h-7 w-7 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                  {usernameDisplay.charAt(0).toUpperCase()}
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-medium text-zinc-200 leading-none">{usernameDisplay}</p>
+                  {teamName ? (
+                    <p className="text-[10px] text-zinc-500 font-medium leading-tight">{teamName}</p>
+                  ) : (
+                    <p className="text-[10px] text-amber-500/80 font-medium leading-tight">No Team</p>
+                  )}
+                </div>
+              </Link>
+
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900 transition-colors"
                 aria-label="Sign out"
               >
                 <LogOut className="h-4 w-4" />
@@ -168,12 +196,20 @@ export default function Navbar() {
           <div className="px-4 py-4 space-y-1">
             {user ? (
               <>
-                <div className="px-3 py-2 mb-2">
-                  <p className="text-sm font-medium text-zinc-300">{profile?.username || 'User'}</p>
-                  {profile?.teams?.name && (
-                    <p className="text-xs text-zinc-600">{profile.teams.name}</p>
-                  )}
-                </div>
+                <Link
+                  href="/profile"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2 mb-2 rounded-lg bg-zinc-900/60 border border-zinc-800"
+                >
+                  <div className="h-7 w-7 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                    {usernameDisplay.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-zinc-200">{usernameDisplay}</p>
+                    <p className="text-xs text-zinc-500">{teamName ? teamName : 'No Team'}</p>
+                  </div>
+                </Link>
+
                 {navLinks.map((link) => {
                   const Icon = link.icon;
                   return (
@@ -192,6 +228,18 @@ export default function Navbar() {
                     </Link>
                   );
                 })}
+                <Link
+                  href="/profile"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive('/profile')
+                      ? 'bg-zinc-800 text-zinc-100'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+                  }`}
+                >
+                  <UserIcon className="h-4 w-4" />
+                  Profile
+                </Link>
                 {isAdmin && (
                   <Link
                     href="/admin"
