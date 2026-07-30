@@ -36,7 +36,7 @@ export default function Modal({ open, onClose, children, title, maxWidth = 'max-
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[9999] overflow-y-auto px-4 flex justify-center items-start animate-overlay"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 animate-overlay bg-black/80 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
@@ -44,16 +44,13 @@ export default function Modal({ open, onClose, children, title, maxWidth = 'max-
       aria-modal="true"
       aria-label={title || 'Modal dialog'}
     >
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm pointer-events-none" />
-
       {/* Content Container */}
       <div
         ref={contentRef}
-        className={`relative ${maxWidth} w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl mt-20 sm:mt-24 mb-10 flex flex-col overflow-hidden animate-slide-up z-10 max-h-[calc(100vh-8rem)]`}
+        className={`relative ${maxWidth} w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-slide-up z-10 max-h-[85vh] sm:max-h-[80vh]`}
       >
-        {/* Sticky Header */}
-        <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-20 shrink-0">
+        {/* Header */}
+        <div className="bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between shrink-0">
           <h2 className="text-base font-semibold text-zinc-100">{title || ''}</h2>
           <button
             onClick={onClose}
@@ -64,8 +61,8 @@ export default function Modal({ open, onClose, children, title, maxWidth = 'max-
           </button>
         </div>
 
-        {/* Scrollable Body */}
-        <div className="p-6 overflow-y-auto flex-1 text-left">{children}</div>
+        {/* Scrollable Content Body */}
+        <div className="p-6 overflow-y-auto flex-1 text-left space-y-4">{children}</div>
       </div>
     </div>
   );
