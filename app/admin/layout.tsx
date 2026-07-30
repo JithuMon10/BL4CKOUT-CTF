@@ -37,7 +37,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         .from('profiles')
         .select('role')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       setAuthorized(profile?.role === 'admin');
     }

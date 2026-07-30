@@ -36,7 +36,7 @@ export default function Modal({ open, onClose, children, title, maxWidth = 'max-
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[100] overflow-y-auto p-4 sm:p-6 flex items-start justify-center pt-20 sm:pt-20 pb-12 animate-overlay"
+      className="fixed inset-0 z-[9999] overflow-y-auto px-4 flex justify-center items-start animate-overlay"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
@@ -50,7 +50,7 @@ export default function Modal({ open, onClose, children, title, maxWidth = 'max-
       {/* Content Container */}
       <div
         ref={contentRef}
-        className={`relative ${maxWidth} w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-h-[calc(100vh-6.5rem)] flex flex-col overflow-hidden animate-slide-up z-10 my-auto`}
+        className={`relative ${maxWidth} w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl mt-20 sm:mt-24 mb-10 flex flex-col overflow-hidden animate-slide-up z-10 max-h-[calc(100vh-8rem)]`}
       >
         {/* Sticky Header */}
         <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-20 shrink-0">
