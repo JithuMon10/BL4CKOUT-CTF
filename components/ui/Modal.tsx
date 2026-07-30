@@ -36,7 +36,7 @@ export default function Modal({ open, onClose, children, title, maxWidth = 'max-
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 flex items-start sm:items-center justify-center pt-20 sm:pt-6 pb-12 animate-overlay"
+      className="fixed inset-0 z-[100] overflow-y-auto p-4 sm:p-6 flex items-start justify-center pt-20 sm:pt-20 pb-12 animate-overlay"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
@@ -45,12 +45,12 @@ export default function Modal({ open, onClose, children, title, maxWidth = 'max-
       aria-label={title || 'Modal dialog'}
     >
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/75 backdrop-blur-sm pointer-events-none" />
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm pointer-events-none" />
 
       {/* Content Container */}
       <div
         ref={contentRef}
-        className={`relative ${maxWidth} w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-slide-up z-10`}
+        className={`relative ${maxWidth} w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-h-[calc(100vh-6.5rem)] flex flex-col overflow-hidden animate-slide-up z-10 my-auto`}
       >
         {/* Sticky Header */}
         <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-20 shrink-0">
@@ -65,7 +65,7 @@ export default function Modal({ open, onClose, children, title, maxWidth = 'max-
         </div>
 
         {/* Scrollable Body */}
-        <div className="p-6 overflow-y-auto flex-1">{children}</div>
+        <div className="p-6 overflow-y-auto flex-1 text-left">{children}</div>
       </div>
     </div>
   );
