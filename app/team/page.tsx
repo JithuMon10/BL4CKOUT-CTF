@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, Plus, Copy, Check, UserPlus, AlertCircle, Loader2, Trophy, Eye } from 'lucide-react';
+import { Users, Plus, Copy, Check, UserPlus, AlertCircle, Loader2, Crown, UserMinus, LogOut, Trash2, Eye } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -101,10 +101,10 @@ export default function TeamPage() {
         setMembers([]);
         setTeamSolves([]);
         setTotalPoints(0);
-        setTab('create'); // Default to create if user has no team
+        setTab('create');
       }
 
-      // 3. Fetch directory of ALL teams (clean separate queries)
+      // 3. Fetch directory of ALL teams
       await fetchAllTeamsDirectory();
 
     } catch (err) {
@@ -134,7 +134,6 @@ export default function TeamPage() {
         };
       });
 
-      // Sort by score
       parsed.sort((a, b) => b.total_points - a.total_points);
       setAllTeams(parsed);
     }
@@ -176,7 +175,7 @@ export default function TeamPage() {
 
       if (profileErr) throw profileErr;
 
-      setMessage({ type: 'success', text: `Team "${newTeam.name}" created! Your invite code is ${newTeam.invite_code}` });
+      setMessage({ type: 'success', text: `Team "${newTeam.name}" created! Invite code is ${newTeam.invite_code}` });
       setTab('my-team');
       await loadData();
     } catch (err: any) {
@@ -205,6 +204,16 @@ export default function TeamPage() {
         throw new Error('Invalid invite code. Team not found.');
       }
 
+      // Check max member capacity (Max 4 people per team)
+      const { count: memberCount } = await supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('team_id', targetTeam.id);
+
+      if ((memberCount || 0) >= 4) {
+        throw new Error('This team has reached the maximum limit of 4 members.');
+      }
+
       // Update user profile
       const { error: profileErr } = await supabase
         .from('profiles')
@@ -218,6 +227,75 @@ export default function TeamPage() {
       await loadData();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Failed to join team.' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Captain Action: Kick member
+  const handleKickMember = async (memberId: string, username: string) => {
+    if (!confirm(`Are you sure you want to remove ${username} from the team?`)) return;
+
+    setActionLoading(true);
+    try {
+      await supabase.from('profiles').update({ team_id: null }).eq('id', memberId);
+      setMessage({ type: 'success', text: `Removed ${username} from the team.` });
+      await loadData();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to remove member.' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Captain Action: Transfer leadership
+  const handleTransferLeadership = async (newCaptainId: string, username: string) => {
+    if (!confirm(`Transfer team captaincy to ${username}?`)) return;
+
+    setActionLoading(true);
+    try {
+      await supabase.from('teams').update({ created_by: newCaptainId }).eq('id', team.id);
+      setMessage({ type: 'success', text: `${username} is now the Team Captain!` });
+      await loadData();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to transfer leadership.' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Member Action: Leave Team
+  const handleLeaveTeam = async () => {
+    if (!confirm(`Are you sure you want to leave ${team.name}?`)) return;
+
+    setActionLoading(true);
+    try {
+      await supabase.from('profiles').update({ team_id: null }).eq('id', user.id);
+      setMessage({ type: 'success', text: `You left team ${team.name}.` });
+      setTeam(null);
+      setTab('create');
+      await loadData();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to leave team.' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Captain Action: Disband Team
+  const handleDisbandTeam = async () => {
+    if (!confirm(`Are you sure you want to DISBAND team "${team.name}"? This action cannot be undone.`)) return;
+
+    setActionLoading(true);
+    try {
+      await supabase.from('profiles').update({ team_id: null }).eq('team_id', team.id);
+      await supabase.from('teams').delete().eq('id', team.id);
+      setMessage({ type: 'success', text: `Team "${team.name}" has been disbanded.` });
+      setTeam(null);
+      setTab('create');
+      await loadData();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to disband team.' });
     } finally {
       setActionLoading(false);
     }
@@ -238,6 +316,8 @@ export default function TeamPage() {
     );
   }
 
+  const isCaptain = team?.created_by === user?.id;
+
   return (
     <div className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
@@ -245,7 +325,7 @@ export default function TeamPage() {
         <div>
           <h1 className="text-2xl font-semibold text-zinc-100">Team Dashboard</h1>
           <p className="text-sm text-zinc-500 mt-1">
-            {team ? `Member of ${team.name}` : 'Create or join a team to submit flags and compete'}
+            {team ? `Member of ${team.name} (${members.length}/4 members)` : 'Create or join a team (Max 4 members)'}
           </p>
         </div>
 
@@ -259,18 +339,22 @@ export default function TeamPage() {
               My Team
             </button>
           )}
-          <button
-            onClick={() => { setTab('create'); setMessage(null); }}
-            className={`px-3 py-1.5 rounded-md transition-colors ${tab === 'create' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-            Create Team
-          </button>
-          <button
-            onClick={() => { setTab('join'); setMessage(null); }}
-            className={`px-3 py-1.5 rounded-md transition-colors ${tab === 'join' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-            Join Team
-          </button>
+          {!team && (
+            <>
+              <button
+                onClick={() => { setTab('create'); setMessage(null); }}
+                className={`px-3 py-1.5 rounded-md transition-colors ${tab === 'create' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+              >
+                Create Team
+              </button>
+              <button
+                onClick={() => { setTab('join'); setMessage(null); }}
+                className={`px-3 py-1.5 rounded-md transition-colors ${tab === 'join' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+              >
+                Join Team
+              </button>
+            </>
+          )}
           <button
             onClick={() => { setTab('all-teams'); setMessage(null); }}
             className={`px-3 py-1.5 rounded-md transition-colors ${tab === 'all-teams' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
@@ -300,12 +384,15 @@ export default function TeamPage() {
           <Card padding="lg">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <span className="text-xs text-zinc-500 uppercase font-medium tracking-wider">Active Team</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500 uppercase font-medium tracking-wider">Active Team</span>
+                  {isCaptain && <Badge variant="warning"><Crown className="h-3 w-3 inline mr-1" />Captain</Badge>}
+                </div>
                 <h2 className="text-2xl font-bold text-zinc-100 mt-0.5">{team.name}</h2>
                 <p className="text-xs text-zinc-500 mt-1">Created on {new Date(team.created_at).toLocaleDateString()}</p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3">
                 {/* Invite Code Box */}
                 <div className="flex items-center gap-3 bg-zinc-950 px-3.5 py-2 rounded-lg border border-zinc-800">
                   <div>
@@ -336,26 +423,78 @@ export default function TeamPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Roster */}
             <Card padding="md">
-              <h3 className="text-sm font-semibold text-zinc-200 mb-4 flex items-center justify-between">
-                <span>Team Members ({members.length})</span>
-                <span className="text-xs text-zinc-500 font-normal">Invite teammates using code above</span>
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-zinc-200">
+                  Roster ({members.length}/4 Max)
+                </h3>
+                <span className="text-xs text-zinc-500">
+                  {members.length < 4 ? `${4 - members.length} spots remaining` : 'Team Full'}
+                </span>
+              </div>
 
               <div className="space-y-2">
-                {members.map((m) => (
-                  <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-zinc-900/50 border border-zinc-800/50">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm">
-                        {m.username.charAt(0).toUpperCase()}
+                {members.map((m) => {
+                  const mIsCaptain = m.id === team.created_by;
+                  const mIsUser = m.id === user.id;
+
+                  return (
+                    <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-zinc-900/50 border border-zinc-800/50">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm">
+                          {m.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-medium text-zinc-200">{m.username}</p>
+                            {mIsCaptain && (
+                              <span title="Team Captain"><Crown className="h-3.5 w-3.5 text-amber-400" /></span>
+                            )}
+                          </div>
+                          <p className="text-xs text-zinc-500">{m.email}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-zinc-200">{m.username}</p>
-                        <p className="text-xs text-zinc-500">{m.email}</p>
+
+                      <div className="flex items-center gap-1.5">
+                        {mIsUser && <Badge variant="success">You</Badge>}
+
+                        {/* Captain controls over other members */}
+                        {isCaptain && !mIsCaptain && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleTransferLeadership(m.id, m.username)}
+                              className="p-1 rounded text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                              title="Make Captain"
+                            >
+                              <Crown className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleKickMember(m.id, m.username)}
+                              className="p-1 rounded text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                              title="Remove from Team"
+                            >
+                              <UserMinus className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    {m.id === user.id && <Badge variant="success">You</Badge>}
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+
+              {/* Team Actions Footer */}
+              <div className="pt-4 border-t border-zinc-800/60 mt-4 flex items-center justify-between">
+                {!isCaptain && (
+                  <Button variant="destructive" size="sm" onClick={handleLeaveTeam} loading={actionLoading}>
+                    <LogOut className="h-3.5 w-3.5" /> Leave Team
+                  </Button>
+                )}
+
+                {isCaptain && (
+                  <Button variant="destructive" size="sm" onClick={handleDisbandTeam} loading={actionLoading}>
+                    <Trash2 className="h-3.5 w-3.5" /> Disband Team
+                  </Button>
+                )}
               </div>
             </Card>
 
@@ -390,7 +529,7 @@ export default function TeamPage() {
         <div className="max-w-md mx-auto">
           <Card padding="lg">
             <h2 className="text-base font-semibold text-zinc-100 mb-1">Create New Team</h2>
-            <p className="text-xs text-zinc-500 mb-4">Choose a team name. A unique invite code will be generated for your team.</p>
+            <p className="text-xs text-zinc-500 mb-4">Choose a team name. Teams have a maximum limit of 4 members.</p>
 
             <form onSubmit={handleCreateTeam} className="space-y-4">
               <Input
@@ -415,7 +554,7 @@ export default function TeamPage() {
         <div className="max-w-md mx-auto">
           <Card padding="lg">
             <h2 className="text-base font-semibold text-zinc-100 mb-1">Join an Existing Team</h2>
-            <p className="text-xs text-zinc-500 mb-4">Enter the 6-character invite code shared by your team captain.</p>
+            <p className="text-xs text-zinc-500 mb-4">Enter the 6-character invite code. Teams are capped at max 4 members.</p>
 
             <form onSubmit={handleJoinTeam} className="space-y-4">
               <Input
@@ -455,7 +594,7 @@ export default function TeamPage() {
                   <tr key={t.id} className="hover:bg-zinc-800/30 transition-colors">
                     <td className="py-3 px-4 font-medium text-zinc-400">#{idx + 1}</td>
                     <td className="py-3 px-4 font-semibold text-zinc-100">{t.name}</td>
-                    <td className="py-3 px-4 text-center text-zinc-400">{t.members_count}</td>
+                    <td className="py-3 px-4 text-center text-zinc-400">{t.members_count}/4</td>
                     <td className="py-3 px-4 text-right font-bold text-emerald-400">{t.total_points} pts</td>
                     <td className="py-3 px-4 text-right">
                       <Button variant="ghost" size="sm" onClick={() => setSelectedTeamModal(t)}>
@@ -481,7 +620,7 @@ export default function TeamPage() {
               </div>
               <div>
                 <p className="text-xs text-zinc-500 text-right">Total Members</p>
-                <p className="text-sm font-semibold text-zinc-200 text-right">{selectedTeamModal.members_count} members</p>
+                <p className="text-sm font-semibold text-zinc-200 text-right">{selectedTeamModal.members_count}/4 members</p>
               </div>
             </div>
 
