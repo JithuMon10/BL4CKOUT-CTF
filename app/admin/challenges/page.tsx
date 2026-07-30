@@ -400,7 +400,7 @@ export default function AdminChallengesPage() {
             required
             value={form.flag}
             onChange={(e) => setForm({ ...form, flag: e.target.value })}
-            placeholder="TCF{flag_here}"
+            placeholder="BL4CKOUT{flag_here}"
             className="font-[family-name:var(--font-mono)]"
           />
 

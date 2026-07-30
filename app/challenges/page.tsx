@@ -388,7 +388,7 @@ export default function ChallengesPage() {
                   type="text"
                   value={flagInput}
                   onChange={(e) => setFlagInput(e.target.value)}
-                  placeholder="TCF{...}"
+                  placeholder="BL4CKOUT{...}"
                   disabled={submitting || !userTeamId}
                   className="flex-1 rounded-lg bg-zinc-950 border border-zinc-800 px-3 py-2.5 text-sm text-zinc-100 font-[family-name:var(--font-mono)] placeholder:text-zinc-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 outline-none transition-colors disabled:opacity-50"
                 />

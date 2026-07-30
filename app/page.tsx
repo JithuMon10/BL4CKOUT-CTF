@@ -174,8 +174,8 @@ export default function HomePage() {
             answer="BL4CKOUT is a Capture The Flag competition platform where participants solve cybersecurity challenges to find hidden strings called 'flags' and submit them for points."
           />
           <FaqItem
-            question="How do I join a team?"
-            answer="Register an account, navigate to the Team tab, and either create a new team or enter the 6-character invite code provided by your team captain."
+            question="Where do I find flags?"
+            answer="Flags are hidden inside challenge files, binary payloads, or web applications. Submit them in the format specified by the challenge (e.g. BL4CKOUT{...})."
           />
           <FaqItem
             question="Where can I see the live scoreboard?"
