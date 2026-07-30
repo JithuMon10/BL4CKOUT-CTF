@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trophy, Loader2, RefreshCw, Search, Eye } from 'lucide-react';
+import { Trophy, Loader2, RefreshCw, Search, Eye, Snowflake } from 'lucide-react';
 import { LeaderboardEntry } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
 import EmptyState from '@/components/ui/EmptyState';
@@ -19,6 +19,7 @@ export default function LeaderboardPage() {
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [currentTeamId, setCurrentTeamId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFrozen, setIsFrozen] = useState(false);
 
   // Selected team modal
   const [selectedTeamModal, setSelectedTeamModal] = useState<any | null>(null);
@@ -48,6 +49,15 @@ export default function LeaderboardPage() {
       }
 
       setAuthed(true);
+
+      // Check settings for scoreboard_frozen
+      const { data: freezeSetting } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'scoreboard_frozen')
+        .maybeSingle();
+
+      setIsFrozen(freezeSetting?.value === 'true');
 
       // Get user profile
       const { data: profile } = await supabase
@@ -172,6 +182,14 @@ export default function LeaderboardPage() {
           </Button>
         </div>
       </div>
+
+      {/* Freeze Banner */}
+      {isFrozen && (
+        <div className="p-3.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-xs flex items-center gap-3 text-cyan-400">
+          <Snowflake className="h-4 w-4 shrink-0" />
+          <span>The scoreboard is currently frozen by the competition organizers. Solve points will be revealed at the end of the event.</span>
+        </div>
+      )}
 
       {/* Table */}
       {loading ? (

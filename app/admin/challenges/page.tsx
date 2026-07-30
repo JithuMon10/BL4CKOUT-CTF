@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Loader2, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Plus, Loader2, Pencil, Trash2, Eye, EyeOff, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Challenge, Category, Difficulty } from '@/types/database';
 import Card from '@/components/ui/Card';
@@ -28,13 +28,17 @@ interface ChallengeForm {
 
 const emptyForm: ChallengeForm = {
   title: '', category: 'Web', difficulty: 'Medium', description: '',
-  points: 100, flag: '', file_url: '', author: '', is_visible: true,
+  points: 100, flag: '', file_url: '', author: 'Admin', is_visible: true,
 };
 
 export default function AdminChallengesPage() {
   const supabase = createClient();
-  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [challenges, setChallenges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCat, setSelectedCat] = useState('All');
+
+  // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ChallengeForm>(emptyForm);
@@ -45,11 +49,25 @@ export default function AdminChallengesPage() {
 
   const loadChallenges = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('challenges')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setChallenges((data || []) as Challenge[]);
+
+    // Clean separate queries to avoid PostgREST relationship ambiguity
+    const [challengesRes, solvesRes] = await Promise.all([
+      supabase.from('challenges').select('*').order('created_at', { ascending: false }),
+      supabase.from('solves').select('challenge_id'),
+    ]);
+
+    const challengesData = challengesRes.data || [];
+    const solvesData = solvesRes.data || [];
+
+    const parsed = challengesData.map((c) => {
+      const solvesCount = solvesData.filter((s) => s.challenge_id === c.id).length;
+      return {
+        ...c,
+        solves_count: solvesCount,
+      };
+    });
+
+    setChallenges(parsed);
     setLoading(false);
   };
 
@@ -60,7 +78,7 @@ export default function AdminChallengesPage() {
     setModalOpen(true);
   };
 
-  const openEdit = (c: Challenge) => {
+  const openEdit = (c: any) => {
     setEditingId(c.id);
     setForm({
       title: c.title,
@@ -70,7 +88,7 @@ export default function AdminChallengesPage() {
       points: c.points,
       flag: c.flag || '',
       file_url: c.file_url || '',
-      author: c.author,
+      author: c.author || 'Admin',
       is_visible: c.is_visible ?? true,
     });
     setError(null);
@@ -91,7 +109,7 @@ export default function AdminChallengesPage() {
         points: form.points,
         flag: form.flag.trim(),
         file_url: form.file_url.trim() || null,
-        author: form.author.trim(),
+        author: form.author.trim() || 'Admin',
         is_visible: form.is_visible,
       };
 
@@ -112,8 +130,8 @@ export default function AdminChallengesPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this challenge? This cannot be undone.')) return;
+  const handleDelete = async (id: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete challenge "${title}"? This cannot be undone.`)) return;
     await supabase.from('challenges').delete().eq('id', id);
     await loadChallenges();
   };
@@ -123,21 +141,60 @@ export default function AdminChallengesPage() {
     await loadChallenges();
   };
 
+  const filteredChallenges = challenges.filter((c) => {
+    const matchesCat = selectedCat === 'All' || c.category === selectedCat;
+    const matchesSearch =
+      (c.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.author || '').toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCat && matchesSearch;
+  });
+
   if (loading) {
     return <div className="py-20 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-zinc-600" /></div>;
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-100">Challenges</h1>
-          <p className="text-sm text-zinc-500 mt-1">{challenges.length} challenges</p>
+          <h1 className="text-2xl font-semibold text-zinc-100">Challenge Management</h1>
+          <p className="text-sm text-zinc-500 mt-1">{challenges.length} total challenges</p>
         </div>
         <Button onClick={openCreate} size="sm">
           <Plus className="h-4 w-4" />
           New Challenge
         </Button>
+      </div>
+
+      {/* Category Pills & Search */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {['All', ...CATEGORIES].map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCat(cat)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                selectedCat === cat
+                  ? 'bg-emerald-500 text-zinc-950'
+                  : 'bg-zinc-900 text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-600" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search challenges..."
+            className="w-full rounded-lg bg-zinc-900 border border-zinc-800 pl-9 pr-3 py-1.5 text-xs text-zinc-200 placeholder:text-zinc-600 focus:border-emerald-500 outline-none transition-colors"
+          />
+        </div>
       </div>
 
       <Card padding="none">
@@ -149,22 +206,24 @@ export default function AdminChallengesPage() {
                 <th className="py-3 px-4 font-medium text-zinc-500">Category</th>
                 <th className="py-3 px-4 font-medium text-zinc-500">Difficulty</th>
                 <th className="py-3 px-4 font-medium text-zinc-500 text-center">Points</th>
+                <th className="py-3 px-4 font-medium text-zinc-500 text-center">Solves</th>
                 <th className="py-3 px-4 font-medium text-zinc-500 text-center">Visible</th>
                 <th className="py-3 px-4 font-medium text-zinc-500 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/50">
-              {challenges.map((c) => (
+              {filteredChallenges.map((c) => (
                 <tr key={c.id} className="hover:bg-zinc-800/30 transition-colors">
                   <td className="py-3 px-4 font-medium text-zinc-200 max-w-[200px] truncate">{c.title}</td>
                   <td className="py-3 px-4"><CategoryBadge category={c.category} /></td>
                   <td className="py-3 px-4">{c.difficulty ? <DifficultyBadge difficulty={c.difficulty} /> : '—'}</td>
-                  <td className="py-3 px-4 text-center text-zinc-300">{c.points}</td>
+                  <td className="py-3 px-4 text-center text-zinc-300 font-semibold">{c.points}</td>
+                  <td className="py-3 px-4 text-center text-emerald-400 font-medium text-xs">{c.solves_count}</td>
                   <td className="py-3 px-4 text-center">
                     <button
                       onClick={() => toggleVisibility(c.id, c.is_visible)}
                       className={`p-1 rounded transition-colors ${c.is_visible ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-zinc-600 hover:bg-zinc-800'}`}
-                      aria-label={c.is_visible ? 'Hide challenge' : 'Show challenge'}
+                      title={c.is_visible ? 'Hide from players' : 'Show to players'}
                     >
                       {c.is_visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                     </button>
@@ -174,14 +233,14 @@ export default function AdminChallengesPage() {
                       <button
                         onClick={() => openEdit(c)}
                         className="p-1.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
-                        aria-label="Edit challenge"
+                        title="Edit challenge"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                       <button
-                        onClick={() => handleDelete(c.id)}
+                        onClick={() => handleDelete(c.id, c.title)}
                         className="p-1.5 rounded text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                        aria-label="Delete challenge"
+                        title="Delete challenge"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

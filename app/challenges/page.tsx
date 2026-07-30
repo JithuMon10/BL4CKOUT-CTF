@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Flag, Search, Download, CheckCircle, Send, AlertCircle, Loader2 } from 'lucide-react';
+import { Flag, Search, Download, CheckCircle, Send, AlertCircle, Loader2, Megaphone } from 'lucide-react';
 import { Challenge, Category } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
 import Card from '@/components/ui/Card';
@@ -18,6 +18,7 @@ export default function ChallengesPage() {
   const router = useRouter();
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,11 +48,15 @@ export default function ChallengesPage() {
 
       setAuthed(true);
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('team_id')
-        .eq('id', user.id)
-        .single();
+      // Clean separate queries
+      const [profileRes, announcementsRes, dbChallengesRes] = await Promise.all([
+        supabase.from('profiles').select('team_id').eq('id', user.id).maybeSingle(),
+        supabase.from('announcements').select('*').order('created_at', { ascending: false }).limit(3),
+        supabase.from('challenges').select('id, title, category, difficulty, description, points, author, file_url, is_visible, created_at').eq('is_visible', true).order('points', { ascending: true }),
+      ]);
+
+      const profile = profileRes.data;
+      setAnnouncements(announcementsRes.data || []);
 
       if (profile?.team_id) {
         setUserTeamId(profile.team_id);
@@ -65,14 +70,8 @@ export default function ChallengesPage() {
         }
       }
 
-      const { data: dbChallenges } = await supabase
-        .from('challenges')
-        .select('id, title, category, difficulty, description, points, author, file_url, is_visible, created_at')
-        .eq('is_visible', true)
-        .order('points', { ascending: true });
-
-      if (dbChallenges) {
-        setChallenges(dbChallenges as Challenge[]);
+      if (dbChallengesRes.data) {
+        setChallenges(dbChallengesRes.data as Challenge[]);
       }
     } catch (err) {
       console.error('Error loading challenges:', err);
@@ -81,7 +80,6 @@ export default function ChallengesPage() {
     }
   };
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (authed === false) {
       router.push('/login');
@@ -149,6 +147,21 @@ export default function ChallengesPage() {
             : 'No challenges published yet'}
         </p>
       </div>
+
+      {/* Announcements Banner */}
+      {announcements.length > 0 && (
+        <div className="space-y-2">
+          {announcements.map((a) => (
+            <div key={a.id} className="p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs flex items-start gap-3">
+              <Megaphone className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-amber-300 block">{a.title}</span>
+                <span className="text-zinc-300 block mt-0.5">{a.content}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
