@@ -36,7 +36,7 @@ export default function Modal({ open, onClose, children, title, maxWidth = 'max-
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 animate-overlay bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-[9999] overflow-y-auto bg-black/80 backdrop-blur-sm animate-overlay"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
@@ -44,25 +44,27 @@ export default function Modal({ open, onClose, children, title, maxWidth = 'max-
       aria-modal="true"
       aria-label={title || 'Modal dialog'}
     >
-      {/* Content Container */}
-      <div
-        ref={contentRef}
-        className={`relative ${maxWidth} w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-slide-up z-10 max-h-[85vh] sm:max-h-[80vh]`}
-      >
-        {/* Header */}
-        <div className="bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-base font-semibold text-zinc-100">{title || ''}</h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
-            aria-label="Close modal"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+      <div className="flex min-h-full items-start justify-center p-4 sm:p-6 text-center">
+        {/* Content Container */}
+        <div
+          ref={contentRef}
+          className={`relative ${maxWidth} w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-slide-up z-10 text-left mt-16 sm:mt-20 mb-8 max-h-[calc(100vh-7rem)]`}
+        >
+          {/* Header */}
+          <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-20 shrink-0">
+            <h2 className="text-base font-semibold text-zinc-100">{title || ''}</h2>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+              aria-label="Close modal"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
 
-        {/* Scrollable Content Body */}
-        <div className="p-6 overflow-y-auto flex-1 text-left space-y-4">{children}</div>
+          {/* Scrollable Content Body */}
+          <div className="p-6 overflow-y-auto flex-1 space-y-4">{children}</div>
+        </div>
       </div>
     </div>
   );
