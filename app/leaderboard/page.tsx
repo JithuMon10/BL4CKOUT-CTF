@@ -1,32 +1,59 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Trophy, Medal, Award, Flame, RefreshCw, Users, CheckCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Trophy, Loader2, RefreshCw } from 'lucide-react';
 import { LeaderboardEntry } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
+import EmptyState from '@/components/ui/EmptyState';
+import Button from '@/components/ui/Button';
+import { SkeletonRow } from '@/components/ui/Skeleton';
 
 export default function LeaderboardPage() {
   const supabase = createClient();
+  const router = useRouter();
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  const [currentTeamId, setCurrentTeamId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchLiveLeaderboard();
+    loadLeaderboard();
   }, []);
 
-  const fetchLiveLeaderboard = async () => {
+  useEffect(() => {
+    if (authed === false) {
+      router.push('/login');
+    }
+  }, [authed, router]);
+
+  const loadLeaderboard = async () => {
     setLoading(true);
     try {
-      // Fetch teams, profiles, and solves from Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        setAuthed(false);
+        setLoading(false);
+        return;
+      }
+
+      setAuthed(true);
+
+      // Get current user's team
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('team_id')
+        .eq('id', user.id)
+        .single();
+
+      setCurrentTeamId(profile?.team_id || null);
+
+      // Fetch teams with solves and profiles
       const { data: teams, error } = await supabase
         .from('teams')
-        .select(`
-          id,
-          name,
-          profiles(id),
-          solves(points, created_at)
-        `);
+        .select(`id, name, profiles(id), solves(points, created_at)`);
 
       if (error) {
         console.error('Error fetching leaderboard:', error);
@@ -34,7 +61,7 @@ export default function LeaderboardPage() {
         const parsed: LeaderboardEntry[] = teams.map((team: any) => {
           const solvesList = team.solves || [];
           const totalPts = solvesList.reduce((acc: number, s: any) => acc + (s.points || 0), 0);
-          
+
           let lastTime: string | null = null;
           if (solvesList.length > 0) {
             const sortedTimes = solvesList
@@ -54,18 +81,14 @@ export default function LeaderboardPage() {
           };
         });
 
-        // Sort by total points (desc) and earliest last_solve_time (asc)
         parsed.sort((a, b) => {
-          if (b.total_points !== a.total_points) {
-            return b.total_points - a.total_points;
-          }
+          if (b.total_points !== a.total_points) return b.total_points - a.total_points;
           if (a.last_solve_time && b.last_solve_time) {
             return new Date(a.last_solve_time).getTime() - new Date(b.last_solve_time).getTime();
           }
           return 0;
         });
 
-        // Assign ranks
         parsed.forEach((entry, idx) => {
           entry.rank = idx + 1;
         });
@@ -73,179 +96,124 @@ export default function LeaderboardPage() {
         setLeaderboard(parsed);
       }
     } catch (err) {
-      console.error('Error fetching live leaderboard:', err);
+      console.error('Error fetching leaderboard:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const getRankBadge = (rank: number) => {
-    switch (rank) {
-      case 1:
-        return (
-          <div className="flex items-center gap-1 text-amber-400 font-bold bg-amber-500/20 px-2.5 py-1 rounded border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.3)]">
-            <Trophy className="h-4 w-4 text-amber-400" /> #1 GOLD
-          </div>
-        );
-      case 2:
-        return (
-          <div className="flex items-center gap-1 text-slate-300 font-bold bg-slate-400/20 px-2.5 py-1 rounded border border-slate-400/40">
-            <Medal className="h-4 w-4 text-slate-300" /> #2 SILVER
-          </div>
-        );
-      case 3:
-        return (
-          <div className="flex items-center gap-1 text-amber-600 font-bold bg-amber-700/20 px-2.5 py-1 rounded border border-amber-700/40">
-            <Award className="h-4 w-4 text-amber-600" /> #3 BRONZE
-          </div>
-        );
-      default:
-        return (
-          <span className="font-mono text-sm font-bold text-slate-400 px-2.5 py-1 rounded bg-slate-900 border border-slate-800">
-            #{rank}
-          </span>
-        );
-    }
-  };
-
-  const maxPoints = Math.max(...leaderboard.map(l => l.total_points), 100);
+  if (authed === null || authed === false) {
+    return (
+      <div className="py-20 flex justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-zinc-600" />
+      </div>
+    );
+  }
 
   return (
-    <div className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-8 font-mono">
-      
+    <div className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
+      <div className="flex items-center justify-between">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold mb-2">
-            <Flame className="h-3.5 w-3.5 text-amber-400 animate-bounce" />
-            LIVE LEADERBOARD MATRIX
-          </div>
-          <h1 className="text-3xl font-black text-white tracking-tight">GLOBAL SCOREBOARD</h1>
-          <p className="text-xs text-slate-400 mt-1">Teams ranked by total points and solve speed timestamps.</p>
-        </div>
-
-        <button
-          onClick={fetchLiveLeaderboard}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 text-xs font-bold text-emerald-400 hover:bg-slate-800 hover:border-emerald-500/40 transition-all"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-          REFRESH RANKS
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="py-20 text-center text-slate-400 text-xs">
-          <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-emerald-400" />
-          <span>CALCULATING LEADERBOARD MATRIX...</span>
-        </div>
-      ) : leaderboard.length === 0 ? (
-        <div className="cyber-card rounded-xl p-12 text-center border border-slate-800 space-y-3">
-          <Trophy className="h-10 w-10 text-slate-600 mx-auto" />
-          <h3 className="text-lg font-bold text-white">NO TEAMS REGISTERED YET</h3>
-          <p className="text-xs text-slate-400 max-w-md mx-auto font-sans">
-            Be the first team to register in the Team tab and solve challenges!
+          <h1 className="text-2xl font-semibold text-zinc-100">Scoreboard</h1>
+          <p className="text-sm text-zinc-500 mt-1">
+            {leaderboard.length > 0
+              ? `${leaderboard.length} teams competing`
+              : 'No teams have scored yet'}
           </p>
         </div>
+        <Button variant="secondary" size="sm" onClick={loadLeaderboard} disabled={loading}>
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+
+      {/* Table */}
+      {loading ? (
+        <div className="card overflow-hidden">
+          {[...Array(5)].map((_, i) => (
+            <SkeletonRow key={i} />
+          ))}
+        </div>
+      ) : leaderboard.length === 0 ? (
+        <EmptyState
+          icon={<Trophy className="h-10 w-10" />}
+          title="No teams have scored yet"
+          description="The scoreboard will populate as teams solve challenges."
+        />
       ) : (
-        <>
-          {/* Top 3 Podium Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {leaderboard.slice(0, 3).map((entry) => (
-              <div
-                key={entry.team_id}
-                className={`cyber-card rounded-2xl p-6 border relative overflow-hidden flex flex-col justify-between ${
-                  entry.rank === 1
-                    ? 'border-amber-500/50 bg-amber-950/20 shadow-[0_0_30px_rgba(245,158,11,0.15)]'
-                    : entry.rank === 2
-                    ? 'border-slate-400/40 bg-slate-900/40'
-                    : 'border-amber-700/40 bg-amber-950/10'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-4">
-                    {getRankBadge(entry.rank)}
-                    <span className="text-xs text-slate-400">{entry.members_count} OPERATIVES</span>
-                  </div>
-
-                  <h3 className="text-xl font-black text-white line-clamp-1">{entry.team_name}</h3>
-                  
-                  <div className="mt-4 flex items-baseline gap-2">
-                    <span className="text-3xl font-black text-emerald-400">{entry.total_points}</span>
-                    <span className="text-xs text-slate-400 font-bold">POINTS</span>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
-                  <span className="flex items-center gap-1 text-cyan-400 font-bold">
-                    <CheckCircle className="h-3.5 w-3.5" /> {entry.solves_count} SOLVES
-                  </span>
-                  <span>
-                    {entry.last_solve_time ? new Date(entry.last_solve_time).toLocaleTimeString() : 'No solves'}
-                  </span>
-                </div>
-              </div>
-            ))}
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-zinc-900/50 border-b border-zinc-800">
+                <tr>
+                  <th className="py-3 px-4 font-medium text-zinc-500 w-16">Rank</th>
+                  <th className="py-3 px-4 font-medium text-zinc-500">Team</th>
+                  <th className="py-3 px-4 font-medium text-zinc-500 text-right">Score</th>
+                  <th className="py-3 px-4 font-medium text-zinc-500 text-right hidden sm:table-cell">Last Solve</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/50">
+                {leaderboard.map((entry) => {
+                  const isCurrentTeam = entry.team_id === currentTeamId;
+                  return (
+                    <tr
+                      key={entry.team_id}
+                      className={`transition-colors ${
+                        isCurrentTeam
+                          ? 'bg-emerald-500/5 border-l-2 border-l-emerald-500'
+                          : 'hover:bg-zinc-800/30'
+                      }`}
+                    >
+                      <td className="py-3 px-4">
+                        <span
+                          className={`inline-flex items-center justify-center w-7 h-7 rounded-md text-xs font-semibold ${
+                            entry.rank === 1
+                              ? 'bg-amber-500/15 text-amber-400'
+                              : entry.rank === 2
+                              ? 'bg-zinc-500/15 text-zinc-400'
+                              : entry.rank === 3
+                              ? 'bg-amber-700/15 text-amber-600'
+                              : 'bg-zinc-800 text-zinc-500'
+                          }`}
+                        >
+                          {entry.rank}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-medium ${isCurrentTeam ? 'text-emerald-400' : 'text-zinc-200'}`}>
+                            {entry.team_name}
+                          </span>
+                          {isCurrentTeam && (
+                            <span className="text-[10px] text-emerald-500 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                              You
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <span className="font-semibold text-zinc-200">{entry.total_points}</span>
+                        <span className="text-zinc-600 ml-1 text-xs">pts</span>
+                      </td>
+                      <td className="py-3 px-4 text-right text-zinc-500 text-xs hidden sm:table-cell">
+                        {entry.last_solve_time
+                          ? new Date(entry.last_solve_time).toLocaleString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-
-          {/* Complete Leaderboard Table */}
-          <div className="cyber-card rounded-2xl border border-slate-800 overflow-hidden">
-            <div className="p-4 sm:p-6 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between">
-              <h2 className="text-sm font-bold text-white tracking-wider">ALL PARTICIPATING SQUADS ({leaderboard.length})</h2>
-              <span className="text-xs text-slate-500">LIVE COMPETITION RANKINGS</span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-900/60 text-slate-400 border-b border-slate-800">
-                  <tr>
-                    <th className="py-3.5 px-6 font-bold">RANK</th>
-                    <th className="py-3.5 px-6 font-bold">SQUAD NAME</th>
-                    <th className="py-3.5 px-6 font-bold">PROGRESS</th>
-                    <th className="py-3.5 px-6 font-bold text-center">SOLVES</th>
-                    <th className="py-3.5 px-6 font-bold text-right">TOTAL POINTS</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                  {leaderboard.map((entry) => {
-                    const progressWidth = `${Math.min(100, Math.max(8, (entry.total_points / maxPoints) * 100))}%`;
-
-                    return (
-                      <tr key={entry.team_id} className="hover:bg-slate-900/40 transition-colors">
-                        <td className="py-4 px-6 font-bold">
-                          {getRankBadge(entry.rank)}
-                        </td>
-                        
-                        <td className="py-4 px-6">
-                          <div className="font-bold text-white text-sm">{entry.team_name}</div>
-                          <div className="text-[10px] text-slate-500">{entry.members_count} team members</div>
-                        </td>
-
-                        <td className="py-4 px-6 w-1/3">
-                          <div className="w-full bg-slate-950 rounded-full h-2 border border-slate-800 overflow-hidden">
-                            <div
-                              className="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-500"
-                              style={{ width: progressWidth }}
-                            ></div>
-                          </div>
-                        </td>
-
-                        <td className="py-4 px-6 text-center font-bold text-cyan-400">
-                          {entry.solves_count}
-                        </td>
-
-                        <td className="py-4 px-6 text-right font-black text-emerald-400 text-sm">
-                          {entry.total_points} PTS
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
+        </div>
       )}
-
     </div>
   );
 }

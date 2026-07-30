@@ -1,6 +1,6 @@
 -- ========================================================
--- BL4CKOUT CTF Platform Production Database Schema
--- Run this script in your Supabase SQL Editor
+-- BL4CKOUT CTF Platform — Production Database Schema
+-- Run this in your Supabase SQL Editor
 -- ========================================================
 
 -- Enable UUID extension
@@ -41,13 +41,26 @@ CREATE TABLE IF NOT EXISTS public.challenges (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
     category TEXT NOT NULL CHECK (category IN ('Web', 'Forensics', 'Pwn', 'Crypto', 'Reverse', 'Misc')),
+    difficulty TEXT DEFAULT 'Medium' CHECK (difficulty IN ('Easy', 'Medium', 'Hard')),
     description TEXT NOT NULL,
     points INTEGER NOT NULL DEFAULT 100,
     flag TEXT NOT NULL,
     file_url TEXT,
-    author TEXT DEFAULT 'BL4CKOUT Team',
+    author TEXT DEFAULT 'Admin',
+    is_visible BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add new columns if they don't exist (safe for re-runs)
+DO $$ BEGIN
+    ALTER TABLE public.challenges ADD COLUMN IF NOT EXISTS difficulty TEXT DEFAULT 'Medium' CHECK (difficulty IN ('Easy', 'Medium', 'Hard'));
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE public.challenges ADD COLUMN IF NOT EXISTS is_visible BOOLEAN DEFAULT true;
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
 
 -- --------------------------------------------------------
 -- 4. SOLVES TABLE
@@ -63,20 +76,70 @@ CREATE TABLE IF NOT EXISTS public.solves (
 );
 
 -- --------------------------------------------------------
--- INDEXES FOR PERFORMANCE & LEADERBOARDS
+-- 5. ANNOUNCEMENTS TABLE
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.announcements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- --------------------------------------------------------
+-- 6. SUBMISSION LOGS TABLE
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.submission_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    team_id UUID NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+    challenge_id UUID NOT NULL REFERENCES public.challenges(id) ON DELETE CASCADE,
+    submitted_flag TEXT NOT NULL,
+    is_correct BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- --------------------------------------------------------
+-- 7. SETTINGS TABLE (Key-Value Store)
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL DEFAULT '',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- --------------------------------------------------------
+-- INDEXES
 -- --------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_solves_team_id ON public.solves(team_id);
 CREATE INDEX IF NOT EXISTS idx_solves_challenge_id ON public.solves(challenge_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_team_id ON public.profiles(team_id);
 CREATE INDEX IF NOT EXISTS idx_teams_invite_code ON public.teams(invite_code);
+CREATE INDEX IF NOT EXISTS idx_submission_logs_challenge ON public.submission_logs(challenge_id);
+CREATE INDEX IF NOT EXISTS idx_submission_logs_team ON public.submission_logs(team_id);
+CREATE INDEX IF NOT EXISTS idx_submission_logs_user ON public.submission_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_announcements_created ON public.announcements(created_at DESC);
 
 -- --------------------------------------------------------
--- ROW LEVEL SECURITY (RLS) POLICIES
+-- ROW LEVEL SECURITY (RLS)
 -- --------------------------------------------------------
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.challenges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.solves ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.submission_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies to avoid conflicts on re-run
+DO $$ 
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public') LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.policyname, r.tablename);
+    END LOOP;
+END $$;
 
 -- PROFILES POLICIES
 CREATE POLICY "Profiles are viewable by everyone" ON public.profiles
@@ -107,12 +170,64 @@ CREATE POLICY "Team members can update team" ON public.teams
 CREATE POLICY "Challenges viewable by everyone" ON public.challenges
     FOR SELECT USING (true);
 
+CREATE POLICY "Admins can insert challenges" ON public.challenges
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+
+CREATE POLICY "Admins can update challenges" ON public.challenges
+    FOR UPDATE USING (
+        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+
+CREATE POLICY "Admins can delete challenges" ON public.challenges
+    FOR DELETE USING (
+        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+
 -- SOLVES POLICIES
 CREATE POLICY "Solves are viewable by everyone" ON public.solves
     FOR SELECT USING (true);
 
 CREATE POLICY "Authenticated users can insert solves" ON public.solves
     FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- ANNOUNCEMENTS POLICIES
+CREATE POLICY "Announcements viewable by everyone" ON public.announcements
+    FOR SELECT USING (true);
+
+CREATE POLICY "Admins can insert announcements" ON public.announcements
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+
+CREATE POLICY "Admins can delete announcements" ON public.announcements
+    FOR DELETE USING (
+        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+
+-- SUBMISSION LOGS POLICIES
+CREATE POLICY "Submission logs viewable by admins" ON public.submission_logs
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+
+CREATE POLICY "Authenticated users can insert submission logs" ON public.submission_logs
+    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- SETTINGS POLICIES
+CREATE POLICY "Settings viewable by everyone" ON public.settings
+    FOR SELECT USING (true);
+
+CREATE POLICY "Admins can upsert settings" ON public.settings
+    FOR INSERT WITH CHECK (
+        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    );
+
+CREATE POLICY "Admins can update settings" ON public.settings
+    FOR UPDATE USING (
+        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+    );
 
 -- --------------------------------------------------------
 -- AUTOMATIC PROFILE CREATION TRIGGER ON SIGNUP
@@ -137,17 +252,9 @@ CREATE TRIGGER on_auth_user_created
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- --------------------------------------------------------
--- INITIAL REAL CHALLENGE SEED DATA
+-- DEFAULT SETTINGS
 -- --------------------------------------------------------
-INSERT INTO public.challenges (title, category, description, points, flag, author, file_url)
-VALUES
-(
-  'The Real GOAT Debate', 
-  'Forensics', 
-  'My friends are currently locked in a civil war. Friend A swears Messi is the undisputed GOAT. Friend B insists Ronaldo stands at the absolute peak of humanity. I realized both of them were completely wrong. To show them who the true, undisputed legend of modern sports really is, I rendered the ultimate video evidence... but a toxic Messi/CR7 debate on Reddit corrupted my container headers. Fix the file, play the video, and witness the true GOAT!', 
-  450, 
-  'TCF{max_verstappen}', 
-  'CyberGOAT', 
-  '/files/challenge.bin'
-)
-ON CONFLICT DO NOTHING;
+INSERT INTO public.settings (key, value) VALUES
+    ('competition_name', 'BL4CKOUT CTF'),
+    ('scoreboard_frozen', 'false')
+ON CONFLICT (key) DO NOTHING;

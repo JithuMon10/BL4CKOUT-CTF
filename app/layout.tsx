@@ -1,10 +1,25 @@
 import type { Metadata } from 'next';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
-  title: 'BL4CKOUT CTF | Elite Cyber Security Competition Platform',
-  description: 'Next-Generation Capture The Flag Platform featuring Web, Forensics, Reverse Engineering, Pwn, Crypto & Steganography challenges.',
+  title: 'BL4CKOUT — Capture The Flag',
+  description:
+    'A professional CTF competition platform. Solve challenges, compete with teams, and climb the scoreboard.',
 };
 
 export default function RootLayout({
@@ -13,26 +28,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className="min-h-screen bg-[#06070a] text-slate-100 antialiased selection:bg-emerald-500 selection:text-slate-950 flex flex-col justify-between cyber-grid">
-        <div>
-          <Navbar />
-          <main>{children}</main>
-        </div>
-
-        {/* Global Footer */}
-        <footer className="border-t border-slate-900 bg-[#040508] py-8 text-center font-mono text-xs text-slate-500">
-          <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-slate-400 font-bold">BL4CKOUT CTF PLATFORM</span>
-              <span>— SECURE INFRASTRUCTURE</span>
-            </div>
-            <p className="text-slate-600">
-              ENGINEERED FOR CYBERSECURITY PROFESSIONALS & CTF AUTHOR COMPETITIONS
-            </p>
-          </div>
-        </footer>
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="min-h-screen bg-[#0a0a0b] text-zinc-100 antialiased font-[family-name:var(--font-inter)] flex flex-col">
+        <Navbar />
+        <main className="flex-1">{children}</main>
+        <Footer />
       </body>
     </html>
   );

@@ -1,4 +1,5 @@
 export type Category = 'Web' | 'Forensics' | 'Pwn' | 'Crypto' | 'Reverse' | 'Misc';
+export type Difficulty = 'Easy' | 'Medium' | 'Hard';
 
 export interface Profile {
   id: string;
@@ -26,11 +27,13 @@ export interface Challenge {
   id: string;
   title: string;
   category: Category;
+  difficulty: Difficulty;
   description: string;
   points: number;
-  flag?: string; // Hidden in public queries
+  flag?: string;
   file_url?: string | null;
   author: string;
+  is_visible: boolean;
   created_at: string;
   is_solved?: boolean;
 }
@@ -55,4 +58,32 @@ export interface LeaderboardEntry {
   solves_count: number;
   last_solve_time: string | null;
   members_count: number;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  created_by: string;
+  created_at: string;
+  profiles?: Profile;
+}
+
+export interface SubmissionLog {
+  id: string;
+  user_id: string;
+  team_id: string;
+  challenge_id: string;
+  submitted_flag: string;
+  is_correct: boolean;
+  created_at: string;
+  profiles?: Profile;
+  teams?: Team;
+  challenges?: Challenge;
+}
+
+export interface Setting {
+  key: string;
+  value: string;
+  updated_at: string;
 }

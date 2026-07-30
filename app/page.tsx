@@ -1,129 +1,188 @@
-import Link from 'next/link';
-import { Terminal, Shield, Trophy, Flag, Users, ArrowRight, Zap, Cpu, Code2, Lock } from 'lucide-react';
+'use client';
 
-export default function LandingPage() {
-  const categories = [
-    { name: 'Forensics', count: '450 pts', icon: Shield, color: 'text-amber-400 border-amber-500/30 bg-amber-500/10' },
-    { name: 'Web Exploitation', count: '250 pts', icon: Code2, color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10' },
-    { name: 'Reverse Engineering', count: '300 pts', icon: Cpu, color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
-    { name: 'Cryptography', count: '350 pts', icon: Lock, color: 'text-purple-400 border-purple-500/30 bg-purple-500/10' },
-    { name: 'Binary Exploitation (Pwn)', count: '400 pts', icon: Terminal, color: 'text-red-400 border-red-500/30 bg-red-500/10' },
-  ];
+import { useState } from 'react';
+import Link from 'next/link';
+import { Trophy, Users, Shield, Flag, Megaphone, BarChart3, ChevronDown, ArrowRight } from 'lucide-react';
+import Card from '@/components/ui/Card';
+
+export default function HomePage() {
+  return (
+    <div className="animate-fade-in">
+      {/* Hero */}
+      <section className="relative py-24 sm:py-32 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 via-transparent to-transparent pointer-events-none" />
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center relative">
+          <h1 className="text-5xl sm:text-7xl font-bold tracking-tight text-zinc-100 mb-4">
+            BL4CKOUT
+          </h1>
+          <p className="text-lg sm:text-xl text-zinc-500 mb-2">Capture The Flag Competition</p>
+          <p className="text-sm text-zinc-600 max-w-lg mx-auto mb-8">
+            Test your cybersecurity skills across forensics, web exploitation, cryptography, reverse engineering, and more. Compete with your team and climb the scoreboard.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium bg-emerald-500 text-zinc-950 hover:bg-emerald-400 transition-colors"
+            >
+              Sign in
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium bg-zinc-800 text-zinc-200 border border-zinc-700 hover:bg-zinc-700 transition-colors"
+            >
+              Create account
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* About */}
+      <section className="py-16 border-t border-zinc-900">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-2xl font-semibold text-zinc-100 mb-4">What is BL4CKOUT?</h2>
+          <p className="text-sm text-zinc-400 leading-relaxed">
+            BL4CKOUT is a Capture The Flag competition platform where teams solve cybersecurity challenges to earn points. Challenges span multiple categories including web exploitation, forensics, cryptography, reverse engineering, binary exploitation, and miscellaneous puzzles. Form a team, solve challenges, submit flags, and compete for the top spot on the live scoreboard.
+          </p>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="py-16 border-t border-zinc-900">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl font-semibold text-zinc-100 text-center mb-10">Platform Features</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
+            <FeatureCard
+              icon={<BarChart3 className="h-5 w-5" />}
+              title="Real-time Scoreboard"
+              description="Live leaderboard that updates as teams solve challenges. See rankings, scores, and solve timestamps."
+            />
+            <FeatureCard
+              icon={<Flag className="h-5 w-5" />}
+              title="Multiple Categories"
+              description="Challenges across Web, Forensics, Crypto, Reverse Engineering, Pwn, and Misc categories."
+            />
+            <FeatureCard
+              icon={<Users className="h-5 w-5" />}
+              title="Team Competition"
+              description="Create or join a team with invite codes. Team scores combine all member solves."
+            />
+            <FeatureCard
+              icon={<Shield className="h-5 w-5" />}
+              title="Secure Flag Submission"
+              description="Server-side flag validation with duplicate submission prevention and submission logging."
+            />
+            <FeatureCard
+              icon={<Megaphone className="h-5 w-5" />}
+              title="Live Announcements"
+              description="Stay updated with competition announcements, hint releases, and rule changes from organizers."
+            />
+            <FeatureCard
+              icon={<Trophy className="h-5 w-5" />}
+              title="Admin Dashboard"
+              description="Full admin panel for managing challenges, users, teams, submissions, and competition settings."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Rules */}
+      <section className="py-16 border-t border-zinc-900">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl font-semibold text-zinc-100 text-center mb-8">Competition Rules</h2>
+          <Card padding="lg">
+            <ul className="space-y-3 text-sm text-zinc-400">
+              <li className="flex gap-3">
+                <span className="text-emerald-400 font-mono text-xs mt-0.5">01</span>
+                <span>Do not attack the competition infrastructure or other teams.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-emerald-400 font-mono text-xs mt-0.5">02</span>
+                <span>Do not share flags, solutions, or hints with other teams.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-emerald-400 font-mono text-xs mt-0.5">03</span>
+                <span>Each team can only submit a flag once per challenge.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-emerald-400 font-mono text-xs mt-0.5">04</span>
+                <span>Brute-forcing flag submissions is prohibited and will result in disqualification.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-emerald-400 font-mono text-xs mt-0.5">05</span>
+                <span>The organizers reserve the right to modify rules, point values, or disqualify teams at their discretion.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-emerald-400 font-mono text-xs mt-0.5">06</span>
+                <span>Have fun and learn something new.</span>
+              </li>
+            </ul>
+          </Card>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="py-16 border-t border-zinc-900">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl font-semibold text-zinc-100 text-center mb-8">Frequently Asked Questions</h2>
+          <div className="space-y-2">
+            <FaqItem
+              question="What is a CTF?"
+              answer="CTF stands for Capture The Flag. It's a cybersecurity competition where participants solve challenges to find hidden strings called 'flags' and submit them for points."
+            />
+            <FaqItem
+              question="How do teams work?"
+              answer="One person creates a team and receives an invite code. Share the code with teammates so they can join. All challenge solves from team members contribute to the team's total score."
+            />
+            <FaqItem
+              question="What does a flag look like?"
+              answer="Flags follow a specific format that will be provided in the challenge description. Common formats include TCF{some_text_here} or BL4CKOUT{some_text_here}."
+            />
+            <FaqItem
+              question="Can I participate alone?"
+              answer="Yes. Create a team with just yourself. You'll still need a team to submit flags."
+            />
+            <FaqItem
+              question="What happens if I submit a wrong flag?"
+              answer="Wrong submissions are logged but don't penalize your score. You can try again. However, brute-forcing is prohibited."
+            />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+  return (
+    <Card padding="md">
+      <div className="text-emerald-400 mb-3">{icon}</div>
+      <h3 className="text-sm font-semibold text-zinc-200 mb-1">{title}</h3>
+      <p className="text-xs text-zinc-500 leading-relaxed">{description}</p>
+    </Card>
+  );
+}
+
+function FaqItem({ question, answer }: { question: string; answer: string }) {
+  const [open, setOpen] = useState(false);
 
   return (
-    <div className="relative overflow-hidden py-12 sm:py-20">
-      
-      {/* Glow Effects */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none"></div>
-
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        
-        {/* Hero Section */}
-        <div className="text-center max-w-3xl mx-auto space-y-6">
-          
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 font-mono text-xs font-semibold shadow-[0_0_15px_rgba(0,255,102,0.2)]">
-            <Zap className="h-3.5 w-3.5 animate-pulse" />
-            <span>LIVE CTF COMPETITION IS ACTIVE</span>
-          </div>
-
-          <h1 className="text-4xl sm:text-6xl font-black font-mono tracking-tight text-white leading-none">
-            WELCOME TO <span className="neon-text-green">BL4CKOUT</span>
-          </h1>
-
-          <p className="text-base sm:text-lg text-slate-400 leading-relaxed font-sans">
-            The ultimate cybersecurity arena. Solve hard forensics, web exploitation, reverse engineering, and cryptography challenges. Compete with top hacker teams on our live dynamic scoreboard.
-          </p>
-
-          {/* CTA Buttons */}
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-4 font-mono text-sm font-bold">
-            <Link
-              href="/challenges"
-              className="flex items-center gap-2 px-6 py-3 rounded-lg bg-emerald-500 text-slate-950 font-black hover:bg-emerald-400 hover:shadow-[0_0_25px_rgba(0,255,102,0.6)] transition-all group"
-            >
-              <Flag className="h-4 w-4" />
-              ENTER CHALLENGES
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-
-            <Link
-              href="/leaderboard"
-              className="flex items-center gap-2 px-6 py-3 rounded-lg bg-slate-900 border border-emerald-500/30 text-emerald-400 hover:bg-slate-800 hover:border-emerald-400 transition-all"
-            >
-              <Trophy className="h-4 w-4" />
-              LIVE SCOREBOARD
-            </Link>
-          </div>
+    <div className="card overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-5 py-4 text-left text-sm font-medium text-zinc-200 hover:bg-zinc-800/50 transition-colors"
+        aria-expanded={open}
+      >
+        {question}
+        <ChevronDown
+          className={`h-4 w-4 text-zinc-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && (
+        <div className="px-5 pb-4 text-sm text-zinc-400 leading-relaxed animate-fade-in">
+          {answer}
         </div>
-
-        {/* Categories Showcase */}
-        <div className="mt-20">
-          <div className="text-center mb-10 font-mono">
-            <h2 className="text-xs uppercase tracking-widest text-emerald-400 font-bold">ACTIVE DOMAINS</h2>
-            <p className="text-2xl font-black text-white mt-1">CHALLENGE CATEGORIES</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((cat) => {
-              const Icon = cat.icon;
-              return (
-                <div key={cat.name} className="cyber-card rounded-xl p-6 relative overflow-hidden group">
-                  <div className="flex items-start justify-between">
-                    <div className={`p-3 rounded-lg border ${cat.color}`}>
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <span className="font-mono text-xs font-bold px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300">
-                      {cat.count}
-                    </span>
-                  </div>
-                  <h3 className="font-mono text-lg font-bold text-white mt-4 group-hover:text-emerald-400 transition-colors">
-                    {cat.name}
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-2">
-                    Multi-stage binary analysis, payload injection, and cryptographic matrix decryption.
-                  </p>
-                  <Link
-                    href="/challenges"
-                    className="mt-4 inline-flex items-center gap-1.5 font-mono text-xs font-bold text-emerald-400 hover:text-emerald-300"
-                  >
-                    <span>Inspect Target</span>
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Featured Challenge Highlight */}
-        <div className="mt-20 cyber-card rounded-2xl p-8 border border-emerald-500/30 bg-emerald-950/20 relative overflow-hidden">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="space-y-4 max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-amber-500/20 border border-amber-500/40 text-amber-400 font-mono text-xs font-bold">
-                🔥 FEATURED HARD FORENSICS CHALLENGE
-              </div>
-              <h2 className="text-3xl font-black font-mono text-white">The Real GOAT Debate</h2>
-              <p className="text-sm text-slate-300 leading-relaxed font-sans">
-                "My friends are locked in a civil war over Messi vs Ronaldo. I rendered the ultimate video evidence, but a toxic Reddit debate corrupted my MP4 container headers! Fix the corrupted file, play the video, and witness the true legend!"
-              </p>
-              <div className="flex items-center gap-4 font-mono text-xs text-slate-400">
-                <span className="text-emerald-400 font-bold">Points: 450 PTS</span>
-                <span>•</span>
-                <span>Category: Forensics</span>
-                <span>•</span>
-                <span>Author: CyberGOAT</span>
-              </div>
-            </div>
-
-            <Link
-              href="/challenges"
-              className="px-6 py-3.5 rounded-lg bg-emerald-500 text-slate-950 font-mono font-black hover:bg-emerald-400 hover:shadow-[0_0_20px_rgba(0,255,102,0.6)] transition-all whitespace-nowrap"
-            >
-              SOLVE CHALLENGE
-            </Link>
-          </div>
-        </div>
-
-      </div>
+      )}
     </div>
   );
 }

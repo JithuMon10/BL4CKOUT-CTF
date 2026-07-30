@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
     if (!challengeId || !flag) {
       return NextResponse.json(
-        { success: false, message: 'Missing challenge ID or flag parameter.' },
+        { success: false, message: 'Missing challenge ID or flag.' },
         { status: 400 }
       );
     }
@@ -20,12 +20,11 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        { success: false, message: 'AUTHENTICATION REQUIRED. Please log in first.' },
+        { success: false, message: 'Authentication required.' },
         { status: 401 }
       );
     }
 
-    // Fetch user profile & team_id
     const { data: profile } = await supabase
       .from('profiles')
       .select('team_id')
@@ -34,14 +33,13 @@ export async function POST(req: NextRequest) {
 
     if (!profile || !profile.team_id) {
       return NextResponse.json(
-        { success: false, message: 'SQUAD REQUIRED. You must create or join a team to submit flags.' },
+        { success: false, message: 'You must join a team before submitting flags.' },
         { status: 400 }
       );
     }
 
     const teamId = profile.team_id;
 
-    // Fetch challenge from Supabase
     const { data: challenge, error: chalError } = await supabase
       .from('challenges')
       .select('*')
@@ -50,12 +48,12 @@ export async function POST(req: NextRequest) {
 
     if (chalError || !challenge) {
       return NextResponse.json(
-        { success: false, message: 'Target challenge not found in database.' },
+        { success: false, message: 'Challenge not found.' },
         { status: 404 }
       );
     }
 
-    // Check if team already solved this challenge
+    // Check duplicate solve
     const { data: existingSolve } = await supabase
       .from('solves')
       .select('id')
@@ -67,16 +65,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: false,
         alreadySolved: true,
-        message: 'YOUR SQUAD HAS ALREADY COMPROMISED THIS TARGET!',
+        message: 'Your team has already solved this challenge.',
       });
     }
 
-    // Flag Validation
     const cleanSubmitted = flag.trim();
     const cleanTrue = challenge.flag.trim();
+    const isCorrect = cleanSubmitted === cleanTrue;
 
-    if (cleanSubmitted === cleanTrue) {
-      // Record solve in Supabase
+    // Log submission
+    await supabase.from('submission_logs').insert({
+      user_id: user.id,
+      team_id: teamId,
+      challenge_id: challengeId,
+      submitted_flag: cleanSubmitted,
+      is_correct: isCorrect,
+    });
+
+    if (isCorrect) {
       const { error: insertError } = await supabase.from('solves').insert({
         team_id: teamId,
         user_id: user.id,
@@ -84,24 +90,22 @@ export async function POST(req: NextRequest) {
         points: challenge.points,
       });
 
-      if (insertError) {
-        throw insertError;
-      }
+      if (insertError) throw insertError;
 
       return NextResponse.json({
         success: true,
         points: challenge.points,
-        message: '⚡ FLAG ACCEPTED! TARGET COMPROMISED SUCCESSFULLY.',
+        message: `Correct! +${challenge.points} points.`,
       });
     } else {
       return NextResponse.json({
         success: false,
-        message: '❌ INCORRECT FLAG. ACCESS DENIED.',
+        message: 'Incorrect flag. Try again.',
       });
     }
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, message: error.message || 'Server error processing flag submission.' },
+      { success: false, message: error.message || 'Server error.' },
       { status: 500 }
     );
   }
