@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Flag, Search, Download, CheckCircle, Send, AlertCircle, Loader2, Megaphone } from 'lucide-react';
+import { Flag, Search, Download, CheckCircle, Send, AlertCircle, Loader2, Megaphone, Lightbulb, ChevronDown } from 'lucide-react';
 import { Challenge, Category } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
 import Card from '@/components/ui/Card';
@@ -23,6 +23,10 @@ export default function ChallengesPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
+
+  // Hints state for selected challenge
+  const [challengeHints, setChallengeHints] = useState<any[]>([]);
+  const [revealedHintIds, setRevealedHintIds] = useState<Set<string>>(new Set());
 
   const [flagInput, setFlagInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -78,6 +82,31 @@ export default function ChallengesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpenChallenge = async (chal: Challenge) => {
+    setSelectedChallenge(chal);
+    setFlagInput('');
+    setFeedback(null);
+    setRevealedHintIds(new Set());
+
+    // Fetch hints for this challenge
+    const { data: hints } = await supabase
+      .from('hints')
+      .select('*')
+      .eq('challenge_id', chal.id)
+      .order('created_at', { ascending: true });
+
+    setChallengeHints(hints || []);
+  };
+
+  const toggleRevealHint = (hintId: string) => {
+    setRevealedHintIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(hintId)) next.delete(hintId);
+      else next.add(hintId);
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -221,13 +250,7 @@ export default function ChallengesPage() {
                 padding="md"
                 className={isSolved ? '!border-emerald-500/20' : ''}
               >
-                <div
-                  onClick={() => {
-                    setSelectedChallenge(chal);
-                    setFlagInput('');
-                    setFeedback(null);
-                  }}
-                >
+                <div onClick={() => handleOpenChallenge(chal)}>
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-1.5">
                       <CategoryBadge category={chal.category} />
@@ -282,18 +305,55 @@ export default function ChallengesPage() {
               </div>
             </div>
 
-            {/* File Download */}
+            {/* Attachment Download */}
             {selectedChallenge.file_url && (
               <div>
-                <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Attachments</h4>
+                <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Attachment Artifact</h4>
                 <a
                   href={selectedChallenge.file_url}
                   download
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-sm text-zinc-300 hover:bg-zinc-700 transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-800 border border-zinc-700 text-xs font-semibold text-emerald-400 hover:bg-zinc-700 hover:border-emerald-500/40 transition-all"
                 >
                   <Download className="h-4 w-4" />
-                  {selectedChallenge.file_url.split('/').pop()}
+                  Download Challenge File ({selectedChallenge.file_url.split('/').pop()?.split('_').pop() || 'artifact'})
                 </a>
+              </div>
+            )}
+
+            {/* Hints Section */}
+            {challengeHints.length > 0 && (
+              <div>
+                <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Hints ({challengeHints.length})</h4>
+                <div className="space-y-2">
+                  {challengeHints.map((hint, idx) => {
+                    const isRevealed = revealedHintIds.has(hint.id);
+                    return (
+                      <div key={hint.id} className="rounded-lg border border-zinc-800 bg-zinc-950 overflow-hidden text-xs">
+                        <button
+                          onClick={() => toggleRevealHint(hint.id)}
+                          className="w-full flex items-center justify-between p-3 text-left hover:bg-zinc-900 transition-colors"
+                        >
+                          <span className="font-semibold text-amber-400 flex items-center gap-1.5">
+                            <Lightbulb className="h-3.5 w-3.5" /> Hint #{idx + 1}
+                            {hint.cost > 0 && <span className="text-zinc-500 font-normal">(-{hint.cost} pts)</span>}
+                          </span>
+                          <span className="text-zinc-500 flex items-center gap-1">
+                            {isRevealed ? 'Hide Hint' : 'Click to Reveal'}
+                            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isRevealed ? 'rotate-180' : ''}`} />
+                          </span>
+                        </button>
+
+                        {isRevealed && (
+                          <div className="px-3 pb-3 pt-1 text-zinc-300 border-t border-zinc-900 whitespace-pre-wrap leading-relaxed">
+                            {hint.hint_text}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 

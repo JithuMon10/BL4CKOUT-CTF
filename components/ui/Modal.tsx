@@ -36,47 +36,36 @@ export default function Modal({ open, onClose, children, title, maxWidth = 'max-
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-overlay"
+      className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 flex items-start sm:items-center justify-center pt-20 sm:pt-6 pb-12 animate-overlay"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
       role="dialog"
       aria-modal="true"
-      aria-label={title}
+      aria-label={title || 'Modal dialog'}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="fixed inset-0 bg-black/75 backdrop-blur-sm pointer-events-none" />
 
-      {/* Content */}
+      {/* Content Container */}
       <div
         ref={contentRef}
-        className={`relative ${maxWidth} w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-h-[85vh] overflow-y-auto animate-slide-up`}
+        className={`relative ${maxWidth} w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-slide-up z-10`}
       >
-        {/* Header */}
-        {title && (
-          <div className="flex items-center justify-between p-6 pb-0">
-            <h2 className="text-lg font-semibold text-zinc-100">{title}</h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
-              aria-label="Close modal"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        )}
-
-        {!title && (
+        {/* Sticky Header */}
+        <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between z-20 shrink-0">
+          <h2 className="text-base font-semibold text-zinc-100">{title || ''}</h2>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors z-10"
+            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
             aria-label="Close modal"
           >
             <X className="h-5 w-5" />
           </button>
-        )}
+        </div>
 
-        <div className="p-6">{children}</div>
+        {/* Scrollable Body */}
+        <div className="p-6 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );

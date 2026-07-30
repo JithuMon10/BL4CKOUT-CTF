@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS public.challenges (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Add new columns if they don't exist (safe for re-runs)
+-- Add new columns if they don't exist
 DO $$ BEGIN
     ALTER TABLE public.challenges ADD COLUMN IF NOT EXISTS difficulty TEXT DEFAULT 'Medium' CHECK (difficulty IN ('Easy', 'Medium', 'Hard'));
 EXCEPTION WHEN duplicate_column THEN NULL;
@@ -63,7 +63,18 @@ EXCEPTION WHEN duplicate_column THEN NULL;
 END $$;
 
 -- --------------------------------------------------------
--- 4. SOLVES TABLE
+-- 4. HINTS TABLE
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.hints (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    challenge_id UUID NOT NULL REFERENCES public.challenges(id) ON DELETE CASCADE,
+    hint_text TEXT NOT NULL,
+    cost INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- --------------------------------------------------------
+-- 5. SOLVES TABLE
 -- --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.solves (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -76,7 +87,7 @@ CREATE TABLE IF NOT EXISTS public.solves (
 );
 
 -- --------------------------------------------------------
--- 5. ANNOUNCEMENTS TABLE
+-- 6. ANNOUNCEMENTS TABLE
 -- --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.announcements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -87,7 +98,7 @@ CREATE TABLE IF NOT EXISTS public.announcements (
 );
 
 -- --------------------------------------------------------
--- 6. SUBMISSION LOGS TABLE
+-- 7. SUBMISSION LOGS TABLE
 -- --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.submission_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -100,7 +111,7 @@ CREATE TABLE IF NOT EXISTS public.submission_logs (
 );
 
 -- --------------------------------------------------------
--- 7. SETTINGS TABLE (Key-Value Store)
+-- 8. SETTINGS TABLE (Key-Value Store)
 -- --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.settings (
     key TEXT PRIMARY KEY,
@@ -115,10 +126,8 @@ CREATE INDEX IF NOT EXISTS idx_solves_team_id ON public.solves(team_id);
 CREATE INDEX IF NOT EXISTS idx_solves_challenge_id ON public.solves(challenge_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_team_id ON public.profiles(team_id);
 CREATE INDEX IF NOT EXISTS idx_teams_invite_code ON public.teams(invite_code);
+CREATE INDEX IF NOT EXISTS idx_hints_challenge_id ON public.hints(challenge_id);
 CREATE INDEX IF NOT EXISTS idx_submission_logs_challenge ON public.submission_logs(challenge_id);
-CREATE INDEX IF NOT EXISTS idx_submission_logs_team ON public.submission_logs(team_id);
-CREATE INDEX IF NOT EXISTS idx_submission_logs_user ON public.submission_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_announcements_created ON public.announcements(created_at DESC);
 
 -- --------------------------------------------------------
 -- ROW LEVEL SECURITY (RLS)
@@ -126,6 +135,7 @@ CREATE INDEX IF NOT EXISTS idx_announcements_created ON public.announcements(cre
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.challenges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hints ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.solves ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.submission_logs ENABLE ROW LEVEL SECURITY;
@@ -142,118 +152,101 @@ BEGIN
 END $$;
 
 -- PROFILES POLICIES
-CREATE POLICY "Profiles are viewable by everyone" ON public.profiles
-    FOR SELECT USING (true);
-
-CREATE POLICY "Users can update own profile" ON public.profiles
-    FOR UPDATE USING (auth.uid() = id);
-
-CREATE POLICY "Users can insert own profile" ON public.profiles
-    FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Profiles viewable by everyone" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Users update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- TEAMS POLICIES
-CREATE POLICY "Teams are viewable by everyone" ON public.teams
-    FOR SELECT USING (true);
-
-CREATE POLICY "Authenticated users can create a team" ON public.teams
-    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-
-CREATE POLICY "Team members can update team" ON public.teams
-    FOR UPDATE USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE profiles.id = auth.uid() AND profiles.team_id = teams.id
-        )
-    );
+CREATE POLICY "Teams viewable by everyone" ON public.teams FOR SELECT USING (true);
+CREATE POLICY "Authed users create team" ON public.teams FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Team members update team" ON public.teams FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.team_id = teams.id)
+);
 
 -- CHALLENGES POLICIES
-CREATE POLICY "Challenges viewable by everyone" ON public.challenges
-    FOR SELECT USING (true);
+CREATE POLICY "Challenges viewable by everyone" ON public.challenges FOR SELECT USING (true);
+CREATE POLICY "Admins insert challenges" ON public.challenges FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
+CREATE POLICY "Admins update challenges" ON public.challenges FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
+CREATE POLICY "Admins delete challenges" ON public.challenges FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
 
-CREATE POLICY "Admins can insert challenges" ON public.challenges
-    FOR INSERT WITH CHECK (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
-    );
-
-CREATE POLICY "Admins can update challenges" ON public.challenges
-    FOR UPDATE USING (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
-    );
-
-CREATE POLICY "Admins can delete challenges" ON public.challenges
-    FOR DELETE USING (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
-    );
+-- HINTS POLICIES
+CREATE POLICY "Hints viewable by everyone" ON public.hints FOR SELECT USING (true);
+CREATE POLICY "Admins insert hints" ON public.hints FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
+CREATE POLICY "Admins update hints" ON public.hints FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
+CREATE POLICY "Admins delete hints" ON public.hints FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
 
 -- SOLVES POLICIES
-CREATE POLICY "Solves are viewable by everyone" ON public.solves
-    FOR SELECT USING (true);
-
-CREATE POLICY "Authenticated users can insert solves" ON public.solves
-    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Solves viewable by everyone" ON public.solves FOR SELECT USING (true);
+CREATE POLICY "Authed users insert solves" ON public.solves FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- ANNOUNCEMENTS POLICIES
-CREATE POLICY "Announcements viewable by everyone" ON public.announcements
-    FOR SELECT USING (true);
-
-CREATE POLICY "Admins can insert announcements" ON public.announcements
-    FOR INSERT WITH CHECK (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
-    );
-
-CREATE POLICY "Admins can delete announcements" ON public.announcements
-    FOR DELETE USING (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
-    );
+CREATE POLICY "Announcements viewable by everyone" ON public.announcements FOR SELECT USING (true);
+CREATE POLICY "Admins insert announcements" ON public.announcements FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
+CREATE POLICY "Admins update announcements" ON public.announcements FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
+CREATE POLICY "Admins delete announcements" ON public.announcements FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
 
 -- SUBMISSION LOGS POLICIES
-CREATE POLICY "Submission logs viewable by admins" ON public.submission_logs
-    FOR SELECT USING (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
-    );
-
-CREATE POLICY "Authenticated users can insert submission logs" ON public.submission_logs
-    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Submission logs viewable by admins" ON public.submission_logs FOR SELECT USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
+CREATE POLICY "Authed users insert submission logs" ON public.submission_logs FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- SETTINGS POLICIES
-CREATE POLICY "Settings viewable by everyone" ON public.settings
-    FOR SELECT USING (true);
-
-CREATE POLICY "Admins can upsert settings" ON public.settings
-    FOR INSERT WITH CHECK (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
-    );
-
-CREATE POLICY "Admins can update settings" ON public.settings
-    FOR UPDATE USING (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
-    );
+CREATE POLICY "Settings viewable by everyone" ON public.settings FOR SELECT USING (true);
+CREATE POLICY "Admins upsert settings" ON public.settings FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
+CREATE POLICY "Admins update settings" ON public.settings FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
 
 -- --------------------------------------------------------
--- AUTOMATIC PROFILE CREATION TRIGGER ON SIGNUP
+-- STORAGE BUCKET FOR CHALLENGE FILES
 -- --------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO public.profiles (id, username, email)
-    VALUES (
-        NEW.id,
-        COALESCE(NEW.raw_user_meta_data->>'username', split_part(NEW.email, '@', 1)),
-        NEW.email
-    )
-    ON CONFLICT (id) DO NOTHING;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('challenge-files', 'challenge-files', true)
+ON CONFLICT (id) DO NOTHING;
 
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+-- Storage RLS policies
+CREATE POLICY "Public challenge file downloads" ON storage.objects 
+FOR SELECT USING (bucket_id = 'challenge-files');
+
+CREATE POLICY "Admin challenge file uploads" ON storage.objects 
+FOR INSERT WITH CHECK (
+    bucket_id = 'challenge-files' AND 
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
+
+CREATE POLICY "Admin challenge file deletes" ON storage.objects 
+FOR DELETE USING (
+    bucket_id = 'challenge-files' AND 
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
 
 -- --------------------------------------------------------
+-- SECURITY HARDENING: REVOKE DIRECT FLAG SELECT
+-- --------------------------------------------------------
+REVOKE SELECT (flag) ON public.challenges FROM anon, authenticated;
+
 -- DEFAULT SETTINGS
--- --------------------------------------------------------
 INSERT INTO public.settings (key, value) VALUES
     ('competition_name', 'BL4CKOUT CTF'),
     ('scoreboard_frozen', 'false')
