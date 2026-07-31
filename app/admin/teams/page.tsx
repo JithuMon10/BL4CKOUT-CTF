@@ -70,8 +70,11 @@ export default function AdminTeamsPage() {
         supabase.from('challenges').update({ first_blood_team_id: null }).eq('first_blood_team_id', deleteTarget.id),
       ]);
 
-      const { error } = await supabase.from('teams').delete().eq('id', deleteTarget.id);
+      const { data, error } = await supabase.from('teams').delete().eq('id', deleteTarget.id).select();
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Database RLS denied team deletion. Please run the SQL migration (migration_fix_team_deletion_rls.sql) in Supabase SQL Editor.');
+      }
 
       showToast('success', `Team "${deleteTarget.name}" deleted.`);
     } catch (err: any) {

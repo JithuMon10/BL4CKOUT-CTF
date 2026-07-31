@@ -259,8 +259,11 @@ export default function TeamPage() {
             supabase.from('submission_logs').update({ team_id: null }).eq('team_id', team.id),
             supabase.from('challenges').update({ first_blood_team_id: null }).eq('first_blood_team_id', team.id),
           ]);
-          const { error } = await supabase.from('teams').delete().eq('id', team.id);
+          const { data, error } = await supabase.from('teams').delete().eq('id', team.id).select();
           if (error) throw error;
+          if (!data || data.length === 0) {
+            throw new Error('Database RLS denied team disbanding. Please run the SQL migration (migration_fix_team_deletion_rls.sql) in Supabase SQL Editor.');
+          }
 
           setMessage({ type: 'success', text: `Team "${team.name}" has been disbanded.` });
           setTeam(null);

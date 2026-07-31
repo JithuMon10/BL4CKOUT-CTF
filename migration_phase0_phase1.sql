@@ -214,3 +214,87 @@ CREATE POLICY "Solvers insert own writeup" ON public.writeups
 
 CREATE POLICY "Users delete own writeup" ON public.writeups
   FOR DELETE USING (auth.uid() = user_id);
+
+-- ─────────────────────────────────────────────
+-- 13. TEAM DELETION RLS POLICIES
+--     Enables Admins & Captains to delete teams and update profiles/solves/reveals
+-- ─────────────────────────────────────────────
+DROP POLICY IF EXISTS "Admins or Captains delete team" ON public.teams;
+
+CREATE POLICY "Admins or Captains delete team" ON public.teams
+  FOR DELETE USING (
+    created_by = auth.uid()
+    OR EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+    )
+  );
+
+DROP POLICY IF EXISTS "Team members update team" ON public.teams;
+
+CREATE POLICY "Captains or Admins update team" ON public.teams
+  FOR UPDATE USING (
+    created_by = auth.uid()
+    OR EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+    )
+  );
+
+DROP POLICY IF EXISTS "Users update own profile" ON public.profiles;
+
+CREATE POLICY "Users update own profile or Admin/Captain updates" ON public.profiles
+  FOR UPDATE USING (
+    auth.uid() = id
+    OR EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.teams t
+      WHERE t.id = profiles.team_id AND t.created_by = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Admins or Captains update solves" ON public.solves;
+
+CREATE POLICY "Admins or Captains update solves" ON public.solves
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.teams t
+      WHERE t.id = solves.team_id AND t.created_by = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Admins or Captains update hint_reveals" ON public.hint_reveals;
+
+CREATE POLICY "Admins or Captains update hint_reveals" ON public.hint_reveals
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.teams t
+      WHERE t.id = hint_reveals.team_id AND t.created_by = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Admins or Captains update submission_logs" ON public.submission_logs;
+
+CREATE POLICY "Admins or Captains update submission_logs" ON public.submission_logs
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.teams t
+      WHERE t.id = submission_logs.team_id AND t.created_by = auth.uid()
+    )
+  );
+
