@@ -254,20 +254,37 @@ export default function ChallengePage() {
             </div>
           </Card>
 
-          {/* Attachment */}
+          {/* Attachments */}
           {challenge.file_url && (
             <Card padding="md">
-              <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Attachment</h2>
-              <a
-                href={challenge.file_url}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-zinc-800 border border-zinc-700 text-xs font-semibold text-emerald-400 hover:bg-zinc-700 hover:border-emerald-500/40 transition-all"
-              >
-                <Download className="h-4 w-4" />
-                Download Challenge File ({challenge.file_url.split('/').pop()?.split('_').pop() || 'artifact'})
-              </a>
+              {(() => {
+                const files = challenge.file_url.split(',').map((s: string) => s.trim()).filter(Boolean);
+                return (
+                  <div>
+                    <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
+                      Challenge Attachment{files.length > 1 ? `s (${files.length})` : ''}
+                    </h2>
+                    <div className="flex flex-wrap gap-2">
+                      {files.map((fileUrl: string, idx: number) => {
+                        const filename = fileUrl.split('/').pop()?.split('_').slice(1).join('_') || fileUrl.split('/').pop() || `artifact_${idx + 1}`;
+                        return (
+                          <a
+                            key={idx}
+                            href={fileUrl}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-zinc-800 border border-zinc-700 text-xs font-semibold text-emerald-400 hover:bg-zinc-700 hover:border-emerald-500/40 transition-all"
+                          >
+                            <Download className="h-4 w-4 shrink-0" />
+                            <span>Download {filename}</span>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </Card>
           )}
 

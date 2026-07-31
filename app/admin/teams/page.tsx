@@ -60,12 +60,27 @@ export default function AdminTeamsPage() {
   const handleDeleteTeam = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
-    await supabase.from('profiles').update({ team_id: null }).eq('team_id', deleteTarget.id);
-    await supabase.from('teams').delete().eq('id', deleteTarget.id);
-    setDeleteTarget(null);
-    setDeleting(false);
-    await loadTeams();
-    showToast('success', `Team "${deleteTarget.name}" deleted.`);
+    try {
+      // Unlink all team dependencies to avoid FK constraints
+      await Promise.all([
+        supabase.from('profiles').update({ team_id: null }).eq('team_id', deleteTarget.id),
+        supabase.from('solves').update({ team_id: null }).eq('team_id', deleteTarget.id),
+        supabase.from('hint_reveals').update({ team_id: null }).eq('team_id', deleteTarget.id),
+        supabase.from('submission_logs').update({ team_id: null }).eq('team_id', deleteTarget.id),
+        supabase.from('challenges').update({ first_blood_team_id: null }).eq('first_blood_team_id', deleteTarget.id),
+      ]);
+
+      const { error } = await supabase.from('teams').delete().eq('id', deleteTarget.id);
+      if (error) throw error;
+
+      showToast('success', `Team "${deleteTarget.name}" deleted.`);
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to delete team.');
+    } finally {
+      setDeleteTarget(null);
+      setDeleting(false);
+      await loadTeams();
+    }
   };
 
   const handleRegenerateCode = async (teamId: string, teamName: string) => {

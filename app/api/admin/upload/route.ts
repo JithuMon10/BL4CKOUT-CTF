@@ -23,37 +23,46 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData();
-    const file = formData.get('file') as File;
+    const files = formData.getAll('files') as File[];
+    const singleFile = formData.get('file') as File;
 
-    if (!file) {
+    const filesToUpload = files.length > 0 ? files : singleFile ? [singleFile] : [];
+
+    if (filesToUpload.length === 0) {
       return NextResponse.json({ success: false, message: 'No file provided' }, { status: 400 });
     }
 
-    const fileBuffer = await file.arrayBuffer();
-    const sanitizedFileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const uploadedUrls: string[] = [];
 
-    // Upload to Supabase Storage 'challenge-files' bucket
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('challenge-files')
-      .upload(sanitizedFileName, fileBuffer, {
-        contentType: file.type || 'application/octet-stream',
-        upsert: true,
-      });
+    for (const file of filesToUpload) {
+      const fileBuffer = await file.arrayBuffer();
+      const sanitizedFileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 
-    if (uploadError) {
-      console.error('Supabase Storage upload error:', uploadError);
-      return NextResponse.json({ success: false, message: uploadError.message }, { status: 500 });
+      // Upload to Supabase Storage 'challenge-files' bucket
+      const { error: uploadError } = await supabase.storage
+        .from('challenge-files')
+        .upload(sanitizedFileName, fileBuffer, {
+          contentType: file.type || 'application/octet-stream',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error('Supabase Storage upload error:', uploadError);
+        return NextResponse.json({ success: false, message: uploadError.message }, { status: 500 });
+      }
+
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('challenge-files')
+        .getPublicUrl(sanitizedFileName);
+
+      uploadedUrls.push(publicUrlData.publicUrl);
     }
-
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from('challenge-files')
-      .getPublicUrl(sanitizedFileName);
 
     return NextResponse.json({
       success: true,
-      file_url: publicUrlData.publicUrl,
-      file_name: file.name,
+      file_url: uploadedUrls.join(', '),
+      file_urls: uploadedUrls,
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message || 'Server upload error' }, { status: 500 });

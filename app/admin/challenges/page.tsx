@@ -146,21 +146,31 @@ export default function AdminChallengesPage() {
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     setUploading(true);
     setError(null);
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
       const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Upload failed');
-      setForm((prev) => ({ ...prev, file_url: data.file_url }));
+
+      const newUrls: string[] = data.file_urls || (data.file_url ? data.file_url.split(',').map((s: string) => s.trim()) : []);
+      setForm((prev) => {
+        const existing = prev.file_url ? prev.file_url.split(',').map((s) => s.trim()).filter(Boolean) : [];
+        const combined = Array.from(new Set([...existing, ...newUrls]));
+        return { ...prev, file_url: combined.join(', ') };
+      });
+      showToast('success', `${files.length} file${files.length > 1 ? 's' : ''} uploaded.`);
     } catch (err: any) {
-      setError(err.message || 'Error uploading file.');
+      setError(err.message || 'Error uploading file(s).');
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -455,18 +465,51 @@ export default function AdminChallengesPage() {
           <Input label="Flag" required value={form.flag} onChange={(e) => setForm({ ...form, flag: e.target.value })}
             placeholder="BL4CKOUT{flag_here}" className="font-[family-name:var(--font-mono)]" />
 
-          {/* File Upload */}
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-zinc-300">Challenge Attachment</label>
+          {/* File Upload Section (Supports Multiple Files) */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-zinc-300">Challenge Attachments (Upload 1 or Multiple Files)</label>
             <div className="flex items-center gap-2 flex-wrap">
               <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-xs font-medium text-zinc-200 hover:bg-zinc-700 transition-colors">
                 <Upload className="h-3.5 w-3.5" />
-                {uploading ? 'Uploading...' : form.file_url ? 'Replace File' : 'Upload File'}
-                <input type="file" onChange={handleFileUpload} className="hidden" disabled={uploading} />
+                {uploading ? 'Uploading File(s)...' : 'Choose File(s) to Upload'}
+                <input type="file" multiple onChange={handleFileUpload} className="hidden" disabled={uploading} />
               </label>
-              {form.file_url && <span className="text-xs text-emerald-400">✓ File attached</span>}
+              <span className="text-xs text-zinc-500">Hold Ctrl/Shift to select multiple files</span>
             </div>
-            <Input value={form.file_url} onChange={(e) => setForm({ ...form, file_url: e.target.value })} placeholder="Or paste a URL directly..." />
+
+            {/* List of attached files with individual removal */}
+            {form.file_url && (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Attached Files:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {form.file_url.split(',').map((urlStr) => urlStr.trim()).filter(Boolean).map((url, idx) => {
+                    const filename = url.split('/').pop()?.split('_').slice(1).join('_') || url.split('/').pop() || `File #${idx + 1}`;
+                    return (
+                      <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-zinc-950 border border-zinc-800 text-xs text-emerald-400 font-mono">
+                        <span className="max-w-[180px] truncate" title={url}>{filename}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = form.file_url.split(',').map((s) => s.trim()).filter((u) => u !== url).join(', ');
+                            setForm((prev) => ({ ...prev, file_url: updated }));
+                          }}
+                          className="text-zinc-500 hover:text-red-400 transition-colors ml-1 font-sans"
+                          title="Remove file"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <Input
+              value={form.file_url}
+              onChange={(e) => setForm({ ...form, file_url: e.target.value })}
+              placeholder="Or paste comma-separated URLs directly..."
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">

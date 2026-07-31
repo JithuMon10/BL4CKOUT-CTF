@@ -252,8 +252,16 @@ export default function TeamPage() {
         setConfirmModal(null);
         setActionLoading(true);
         try {
-          await supabase.from('profiles').update({ team_id: null }).eq('team_id', team.id);
-          await supabase.from('teams').delete().eq('id', team.id);
+          await Promise.all([
+            supabase.from('profiles').update({ team_id: null }).eq('team_id', team.id),
+            supabase.from('solves').update({ team_id: null }).eq('team_id', team.id),
+            supabase.from('hint_reveals').update({ team_id: null }).eq('team_id', team.id),
+            supabase.from('submission_logs').update({ team_id: null }).eq('team_id', team.id),
+            supabase.from('challenges').update({ first_blood_team_id: null }).eq('first_blood_team_id', team.id),
+          ]);
+          const { error } = await supabase.from('teams').delete().eq('id', team.id);
+          if (error) throw error;
+
           setMessage({ type: 'success', text: `Team "${team.name}" has been disbanded.` });
           setTeam(null);
           setTab('create');
