@@ -1,6 +1,6 @@
-import { ReactNode } from 'react';
+import { ReactNode, HTMLAttributes } from 'react';
 
-interface CardProps {
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   className?: string;
   interactive?: boolean;
@@ -14,9 +14,12 @@ const paddingStyles = {
   lg: 'p-8',
 };
 
-export default function Card({ children, className = '', interactive = false, padding = 'md' }: CardProps) {
+export default function Card({ children, className = '', interactive = false, padding = 'md', ...rest }: CardProps) {
   return (
-    <div className={`card ${interactive ? 'card-interactive cursor-pointer' : ''} ${paddingStyles[padding]} ${className}`}>
+    <div
+      className={`card ${interactive ? 'card-interactive cursor-pointer' : ''} ${paddingStyles[padding]} ${className}`}
+      {...rest}
+    >
       {children}
     </div>
   );
