@@ -35,11 +35,18 @@
    Base Styles
    ============================================ */
 
+html {
+  height: 100%;
+  scroll-behavior: smooth;
+}
+
 body {
+  min-height: 100%;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   overflow-x: hidden;
 }
+
 
 /* ============================================
    Scrollbar

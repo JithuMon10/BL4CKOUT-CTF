@@ -59,7 +59,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)]">
+    <div className="flex flex-1">
       {/* Mobile sidebar toggle */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -71,7 +71,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-14 z-40 h-[calc(100vh-3.5rem)] w-56 bg-zinc-950 border-r border-zinc-900 flex flex-col transition-transform duration-200 ${
+        className={`fixed lg:sticky top-14 z-40 h-[calc(100dvh-3.5rem)] w-56 bg-zinc-950 border-r border-zinc-900 flex flex-col transition-transform duration-200 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
