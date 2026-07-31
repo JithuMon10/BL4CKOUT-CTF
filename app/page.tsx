@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Trophy, Users, Shield, Flag, Code2, Cpu, Lock, Terminal, ArrowRight, ChevronDown, CheckCircle2, LogIn, UserPlus } from 'lucide-react';
+import { Trophy, Users, Shield, Flag, Code2, Cpu, Lock, Terminal, ArrowRight, ChevronDown, CheckCircle2, LogIn, UserPlus, Droplets } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import { createClient } from '@/lib/supabase/client';
+import ActivityFeed from '@/components/ActivityFeed';
 
 export default function HomePage() {
   const supabase = createClient();
@@ -87,6 +88,42 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Signed-in Dashboard: Activity Feed */}
+      {user && (
+        <section className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Quick Actions */}
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">Quick Access</h2>
+              {[
+                { href: '/challenges', icon: Flag, label: 'Challenges', desc: 'Solve and submit flags', color: 'text-emerald-400' },
+                { href: '/leaderboard', icon: Trophy, label: 'Scoreboard', desc: 'Live team rankings', color: 'text-amber-400' },
+                { href: '/team', icon: Users, label: 'My Team', desc: 'Manage your squad', color: 'text-blue-400' },
+              ].map(({ href, icon: Icon, label, desc, color }) => (
+                <Link key={href} href={href}>
+                  <Card padding="sm" interactive className="flex items-center gap-3">
+                    <div className={`h-9 w-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0 ${color}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-200">{label}</p>
+                      <p className="text-xs text-zinc-500">{desc}</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-zinc-700 ml-auto" />
+                  </Card>
+                </Link>
+              ))}
+            </div>
+
+            {/* Activity Feed */}
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">Latest Activity</h2>
+              <ActivityFeed />
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Domain Categories Section */}
       <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10">
@@ -124,19 +161,27 @@ export default function HomePage() {
             <ul className="space-y-2.5 text-xs text-zinc-300">
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>Team squads with 6-character invite codes</span>
+                <span>Practice mode — solo solving without a team</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>Graduated hint reveals for difficult challenges</span>
+                <span>Team squads (max 4 members) with invite codes</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>Direct downloadable challenge artifact files</span>
+                <span>Server-tracked hint reveals with point deduction</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Droplets className="h-4 w-4 text-red-400 shrink-0" />
+                <span>First Blood tracking — fastest solver wins glory</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span>Live dynamic leaderboard for logged-in teams</span>
+                <span>Post-solve write-up sharing (solver-only visibility)</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span>Live dynamic scoreboard with freeze control</span>
               </li>
             </ul>
           </div>
