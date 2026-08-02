@@ -189,3 +189,5 @@ class RuntimeClient {
   }
 
 }
+
+export const runtimeClient = new RuntimeClient();
