@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { CategoryBadge, DifficultyBadge } from '@/components/ui/Badge';
+import { RuntimeInstanceCard } from '@/components/RuntimeInstanceCard';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
@@ -253,6 +254,13 @@ export default function ChallengePage() {
               {challenge.description}
             </div>
           </Card>
+
+          {/* Interactive Container Runtime Section */}
+          {(challenge.has_runtime || challenge.runtime_template || challenge.id === 'hello-nc' || ['Web', 'Pwn', 'Crypto', 'Misc'].includes(challenge.category)) && (
+            <div className="my-4">
+              <RuntimeInstanceCard challengeId={challenge.runtime_challenge_id || challenge.id} />
+            </div>
+          )}
 
           {/* Attachments */}
           {challenge.file_url && (
