@@ -20,11 +20,31 @@ interface ChallengeForm {
   title: string; category: Category; difficulty: Difficulty;
   description: string; points: number; flag: string;
   file_url: string; author: string; is_visible: boolean;
+  has_runtime: boolean;
+  runtime_template: 'nc' | 'http' | 'flask' | 'php' | 'pwn' | 'crypto';
+  runtime_folder: string;
+  runtime_timeout: number;
+  runtime_memory: number;
+  runtime_cpu: number;
+  runtime_pids: number;
+  runtime_port: number;
+  runtime_protocol: 'nc' | 'http' | 'tcp';
+  dockerfile_override: string;
 }
 
 const emptyForm: ChallengeForm = {
   title: '', category: 'Web', difficulty: 'Medium', description: '',
   points: 100, flag: '', file_url: '', author: 'Admin', is_visible: false,
+  has_runtime: false,
+  runtime_template: 'nc',
+  runtime_folder: '',
+  runtime_timeout: 30,
+  runtime_memory: 64,
+  runtime_cpu: 0.1,
+  runtime_pids: 30,
+  runtime_port: 1337,
+  runtime_protocol: 'nc',
+  dockerfile_override: '',
 };
 
 export default function AdminChallengesPage() {
@@ -140,6 +160,16 @@ export default function AdminChallengesPage() {
       title: c.title, category: c.category, difficulty: c.difficulty || 'Medium',
       description: c.description, points: c.points, flag: c.flag || '',
       file_url: c.file_url || '', author: c.author || 'Admin', is_visible: c.is_visible ?? false,
+      has_runtime: c.has_runtime ?? false,
+      runtime_template: c.runtime_template || 'nc',
+      runtime_folder: c.runtime_folder || '',
+      runtime_timeout: c.runtime_timeout || 30,
+      runtime_memory: c.runtime_memory || 64,
+      runtime_cpu: c.runtime_cpu || 0.1,
+      runtime_pids: c.runtime_pids || 30,
+      runtime_port: c.runtime_port || 1337,
+      runtime_protocol: c.runtime_protocol || 'nc',
+      dockerfile_override: '',
     });
     setError(null);
     setModalOpen(true);
@@ -174,7 +204,7 @@ export default function AdminChallengesPage() {
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
@@ -184,19 +214,36 @@ export default function AdminChallengesPage() {
         description: form.description.trim(), points: form.points, flag: form.flag.trim(),
         file_url: form.file_url.trim() || null, author: form.author.trim() || 'Admin',
         is_visible: form.is_visible,
+        has_runtime: form.has_runtime,
+        runtime_template: form.runtime_template,
+        runtime_folder: form.runtime_folder.trim() || null,
+        runtime_timeout: form.runtime_timeout,
+        runtime_memory: form.runtime_memory,
+        runtime_cpu: form.runtime_cpu,
+        runtime_pids: form.runtime_pids,
+        runtime_port: form.runtime_port,
+        runtime_protocol: form.runtime_protocol,
+        dockerfile_override: form.dockerfile_override.trim() || null,
       };
 
       if (editingId) {
         const { error } = await supabase.from('challenges').update(payload).eq('id', editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('challenges').insert(payload);
-        if (error) throw error;
+        const res = await fetch('/api/admin/challenges/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || 'Failed to create challenge.');
+        }
       }
 
       setModalOpen(false);
       await loadChallenges();
-      showToast('success', editingId ? 'Challenge updated.' : 'Challenge created.');
+      showToast('success', editingId ? 'Challenge updated.' : 'Challenge created with dynamic runtime.');
     } catch (err: any) {
       setError(err.message || 'Failed to save challenge.');
     } finally {
@@ -464,6 +511,131 @@ export default function AdminChallengesPage() {
 
           <Input label="Flag" required value={form.flag} onChange={(e) => setForm({ ...form, flag: e.target.value })}
             placeholder="BL4CKOUT{flag_here}" className="font-[family-name:var(--font-mono)]" />
+
+          
+          {/* ── RUNTIME CONFIGURATION SECTION ── */}
+          <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
+                  <span>⚡ Interactive Container Runtime</span>
+                </h4>
+                <p className="text-[11px] text-zinc-400">Launch a dedicated Docker container instance per player</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.has_runtime}
+                  onChange={(e) => setForm({ ...form, has_runtime: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
+              </label>
+            </div>
+
+            {form.has_runtime && (
+              <div className="space-y-4 pt-2 border-t border-slate-800/80 text-xs animate-fade-in">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="block font-semibold text-zinc-300">Challenge Template</label>
+                    <select
+                      value={form.runtime_template}
+                      onChange={(e) => {
+                        const tmpl = e.target.value as any;
+                        const defaultPorts: Record<string, number> = { nc: 1337, http: 80, flask: 5000, php: 80, pwn: 1337, crypto: 1337 };
+                        const defaultProtos: Record<string, 'nc' | 'http' | 'tcp'> = { nc: 'nc', http: 'http', flask: 'http', php: 'http', pwn: 'nc', crypto: 'nc' };
+                        setForm({
+                          ...form,
+                          runtime_template: tmpl,
+                          runtime_port: defaultPorts[tmpl] || 1337,
+                          runtime_protocol: defaultProtos[tmpl] || 'nc',
+                        });
+                      }}
+                      className="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-zinc-100 focus:border-cyan-500 outline-none"
+                    >
+                      <option value="nc">Netcat (socat TCP raw socket)</option>
+                      <option value="http">Static HTTP (Nginx Web)</option>
+                      <option value="flask">Python Flask (WSGI App)</option>
+                      <option value="php">PHP Apache Web</option>
+                      <option value="pwn">Pwn (Binary Exploitation)</option>
+                      <option value="crypto">Crypto (Python Oracle)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block font-semibold text-zinc-300">Folder Name</label>
+                    <input
+                      type="text"
+                      value={form.runtime_folder}
+                      onChange={(e) => setForm({ ...form, runtime_folder: e.target.value })}
+                      placeholder="e.g. sqli-101 (auto-generated if empty)"
+                      className="w-full rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-2 text-zinc-100 placeholder:text-zinc-600 focus:border-cyan-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <Input
+                    label="Timeout (Mins)"
+                    type="number"
+                    min={5}
+                    max={120}
+                    value={form.runtime_timeout}
+                    onChange={(e) => setForm({ ...form, runtime_timeout: parseInt(e.target.value) || 30 })}
+                  />
+                  <Input
+                    label="Memory (MB)"
+                    type="number"
+                    min={32}
+                    max={1024}
+                    value={form.runtime_memory}
+                    onChange={(e) => setForm({ ...form, runtime_memory: parseInt(e.target.value) || 64 })}
+                  />
+                  <Input
+                    label="Internal Port"
+                    type="number"
+                    value={form.runtime_port}
+                    onChange={(e) => setForm({ ...form, runtime_port: parseInt(e.target.value) || 1337 })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="CPU Quota (Cores)"
+                    type="number"
+                    step="0.05"
+                    min={0.05}
+                    max={2.0}
+                    value={form.runtime_cpu}
+                    onChange={(e) => setForm({ ...form, runtime_cpu: parseFloat(e.target.value) || 0.1 })}
+                  />
+                  <Input
+                    label="PID Limit"
+                    type="number"
+                    min={10}
+                    max={200}
+                    value={form.runtime_pids}
+                    onChange={(e) => setForm({ ...form, runtime_pids: parseInt(e.target.value) || 30 })}
+                  />
+                </div>
+
+                {/* Advanced Dockerfile Override */}
+                <details className="pt-1">
+                  <summary className="cursor-pointer text-[11px] font-semibold text-zinc-500 hover:text-cyan-400">
+                    Advanced: Dockerfile Override
+                  </summary>
+                  <textarea
+                    rows={4}
+                    value={form.dockerfile_override}
+                    onChange={(e) => setForm({ ...form, dockerfile_override: e.target.value })}
+                    placeholder="Custom Dockerfile content (leave empty to use default template Dockerfile)..."
+                    className="mt-2 w-full rounded-lg bg-zinc-950 border border-zinc-800 p-2 text-xs font-mono text-zinc-300 outline-none focus:border-cyan-500"
+                  />
+                </details>
+              </div>
+            )}
+          </div>
+
 
           {/* File Upload Section (Supports Multiple Files) */}
           <div className="space-y-2">

@@ -34,6 +34,21 @@ export interface RenewInstancePayload {
   additionalMins?: number;
 }
 
+export interface CreateChallengeFolderPayload {
+  challengeId: string;
+  folderName?: string;
+  title: string;
+  category: string;
+  template: 'nc' | 'http' | 'flask' | 'php' | 'pwn' | 'crypto';
+  internalPort?: number;
+  protocol?: 'nc' | 'http' | 'tcp';
+  memoryMb?: number;
+  cpuQuota?: number;
+  pidsLimit?: number;
+  timeoutMins?: number;
+  dockerfileOverride?: string;
+}
+
 export interface TerminateInstancePayload {
   instanceId: string;
   userId: string;
@@ -161,6 +176,16 @@ class RuntimeClient {
       return [];
     }
   }
-}
 
-export const runtimeClient = new RuntimeClient();
+  /**
+   * Generates a new dynamic challenge folder and Docker image on the runtime server.
+   */
+  public async createChallengeFolder(payload: CreateChallengeFolderPayload): Promise<any> {
+    const res = await this.request<any>('/challenges/create', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res.data;
+  }
+
+}
