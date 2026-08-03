@@ -47,6 +47,7 @@ export interface CreateChallengeFolderPayload {
   pidsLimit?: number;
   timeoutMins?: number;
   dockerfileOverride?: string;
+  flag?: string;
 }
 
 export interface TerminateInstancePayload {

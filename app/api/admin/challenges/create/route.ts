@@ -113,6 +113,7 @@ export async function POST(req: NextRequest) {
           pidsLimit: Number(runtime_pids) || 30,
           timeoutMins: Number(runtime_timeout) || 30,
           dockerfileOverride: dockerfile_override || undefined,
+          flag: flag || inserted.flag,
         });
       } catch (runtimeErr: any) {
         console.error('[Admin Create Challenge] Runtime folder generation warning:', runtimeErr.message);
