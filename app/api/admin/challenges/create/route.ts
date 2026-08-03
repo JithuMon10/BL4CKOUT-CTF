@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const {
+      challengeId,
       title,
       category,
       difficulty,
@@ -51,41 +52,56 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Missing required challenge fields.' }, { status: 400 });
     }
 
-    // Insert challenge into Supabase database
-    const { data: inserted, error: dbError } = await supabase
-      .from('challenges')
-      .insert({
-        title,
-        category,
-        difficulty: difficulty || 'Medium',
-        description,
-        points: Number(points) || 100,
-        flag,
-        file_url: file_url || null,
-        author: author || 'Admin',
-        is_visible: Boolean(is_visible),
-        has_runtime: Boolean(has_runtime),
-        runtime_template: runtime_template || 'nc',
-        runtime_folder: runtime_folder || null,
-        runtime_timeout: Number(runtime_timeout) || 30,
-        runtime_memory: Number(runtime_memory) || 64,
-        runtime_cpu: Number(runtime_cpu) || 0.1,
-        runtime_pids: Number(runtime_pids) || 30,
-        runtime_port: Number(runtime_port) || 1337,
-        runtime_protocol: runtime_protocol || 'nc',
-      })
-      .select()
-      .single();
+    let targetId = challengeId;
+    let inserted: any = null;
 
-    if (dbError || !inserted) {
-      throw new Error(dbError?.message || 'Failed to insert challenge into database.');
+    if (!targetId) {
+      // Insert new challenge into Supabase database
+      const { data: dbInserted, error: dbError } = await supabase
+        .from('challenges')
+        .insert({
+          title,
+          category,
+          difficulty: difficulty || 'Medium',
+          description,
+          points: Number(points) || 100,
+          flag,
+          file_url: file_url || null,
+          author: author || 'Admin',
+          is_visible: Boolean(is_visible),
+          has_runtime: Boolean(has_runtime),
+          runtime_template: runtime_template || 'nc',
+          runtime_folder: runtime_folder || null,
+          runtime_timeout: Number(runtime_timeout) || 30,
+          runtime_memory: Number(runtime_memory) || 64,
+          runtime_cpu: Number(runtime_cpu) || 0.1,
+          runtime_pids: Number(runtime_pids) || 30,
+          runtime_port: Number(runtime_port) || 1337,
+          runtime_protocol: runtime_protocol || 'nc',
+        })
+        .select()
+        .single();
+
+      if (dbError || !dbInserted) {
+        throw new Error(dbError?.message || 'Failed to insert challenge into database.');
+      }
+      inserted = dbInserted;
+      targetId = dbInserted.id;
+    } else {
+      // Fetch existing record
+      const { data: dbExisting } = await supabase
+        .from('challenges')
+        .select('*')
+        .eq('id', targetId)
+        .maybeSingle();
+      inserted = dbExisting || { id: targetId, title, category };
     }
 
     // If runtime enabled, generate self-contained folder & Docker image on runtime microservice
     if (has_runtime) {
       try {
         await runtimeClient.createChallengeFolder({
-          challengeId: inserted.id,
+          challengeId: targetId,
           folderName: runtime_folder || inserted.id,
           title: inserted.title,
           category: inserted.category.toLowerCase(),

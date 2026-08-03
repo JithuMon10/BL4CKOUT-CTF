@@ -6,6 +6,7 @@ import { Flag, Search, Download, CheckCircle, Send, AlertCircle, Loader2, Megaph
 import { Challenge, Category } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
 import Card from '@/components/ui/Card';
+import { RuntimeInstanceCard } from '@/components/RuntimeInstanceCard';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { CategoryBadge, DifficultyBadge } from '@/components/ui/Badge';
@@ -60,7 +61,7 @@ export default function ChallengesPage() {
       const [profileRes, announcementsRes, dbChallengesRes, settingsRes] = await Promise.all([
         supabase.from('profiles').select('team_id').eq('id', user.id).maybeSingle(),
         supabase.from('announcements').select('*').order('created_at', { ascending: false }).limit(3),
-        supabase.from('challenges').select('id, title, category, difficulty, description, points, author, file_url, is_visible, created_at, first_blood_at, first_blood_user_id, first_blood_team_id').order('points', { ascending: true }),
+        supabase.from('challenges').select('*').order('points', { ascending: true }),
         supabase.from('settings').select('key, value').in('key', ['platform_mode', 'allow_solo_submissions']),
       ]);
 
@@ -431,6 +432,13 @@ export default function ChallengesPage() {
                 {selectedChallenge.description}
               </div>
             </div>
+
+            {/* Interactive Container Runtime Section */}
+            {(selectedChallenge.has_runtime === true || (selectedChallenge as any).has_runtime === 'true' || Boolean((selectedChallenge as any).runtime_template) || Boolean((selectedChallenge as any).runtime_folder) || selectedChallenge.id === 'hello-nc') && (
+              <div>
+                <RuntimeInstanceCard challengeId={selectedChallenge.id} />
+              </div>
+            )}
 
             {/* Attachment */}
             {selectedChallenge.file_url && (

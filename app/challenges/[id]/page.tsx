@@ -57,7 +57,7 @@ export default function ChallengePage() {
       setAuthed(true);
 
       const [challengeRes, profileRes, hintsRes, settingsRes] = await Promise.all([
-        supabase.from('challenges').select('id, title, category, difficulty, description, points, author, file_url, is_visible, created_at, first_blood_user_id, first_blood_team_id, first_blood_at').eq('id', challengeId).maybeSingle(),
+        supabase.from('challenges').select('*').eq('id', challengeId).maybeSingle(),
         supabase.from('profiles').select('team_id').eq('id', user.id).maybeSingle(),
         supabase.from('hints').select('id, cost').eq('challenge_id', challengeId).order('cost', { ascending: true }),
         supabase.from('settings').select('key, value').in('key', ['platform_mode', 'allow_solo_submissions']),
@@ -256,9 +256,9 @@ export default function ChallengePage() {
           </Card>
 
           {/* Interactive Container Runtime Section */}
-          {(challenge.has_runtime || challenge.runtime_template || challenge.id === 'hello-nc' || ['Web', 'Pwn', 'Crypto', 'Misc'].includes(challenge.category)) && (
+          {(challenge.has_runtime === true || challenge.has_runtime === 'true' || Boolean(challenge.runtime_template) || Boolean(challenge.runtime_folder) || challenge.id === 'hello-nc') && (
             <div className="my-4">
-              <RuntimeInstanceCard challengeId={challenge.runtime_challenge_id || challenge.id} />
+              <RuntimeInstanceCard challengeId={challenge.id} />
             </div>
           )}
 

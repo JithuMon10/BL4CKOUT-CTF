@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Plus, Loader2, Pencil, Trash2, Eye, EyeOff, Search, Upload,
+  Plus, Loader2, Pencil, Copy, Trash2, Eye, EyeOff, Search, Upload,
   Lightbulb, CheckSquare, Square, ChevronDown, Droplets, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -147,6 +147,33 @@ export default function AdminChallengesPage() {
   };
 
   // ── Challenge CRUD ─────────────────────────────────────
+    const duplicateChallenge = (c: any) => {
+    setEditingId(null);
+    setForm({
+      title: `${c.title} (Copy)`,
+      category: c.category,
+      difficulty: c.difficulty || 'Medium',
+      description: c.description,
+      points: c.points,
+      flag: c.flag ? `${c.flag}_copy` : 'BL4CKOUT{copy_flag}',
+      file_url: c.file_url || '',
+      author: c.author || 'Admin',
+      is_visible: false,
+      has_runtime: c.has_runtime ?? false,
+      runtime_template: c.runtime_template || 'nc',
+      runtime_folder: '',
+      runtime_timeout: c.runtime_timeout || 30,
+      runtime_memory: c.runtime_memory || 64,
+      runtime_cpu: c.runtime_cpu || 0.1,
+      runtime_pids: c.runtime_pids || 30,
+      runtime_port: c.runtime_port || 1337,
+      runtime_protocol: c.runtime_protocol || 'nc',
+      dockerfile_override: '',
+    });
+    setError(null);
+    setModalOpen(true);
+  };
+
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyForm);
@@ -229,6 +256,15 @@ export default function AdminChallengesPage() {
       if (editingId) {
         const { error } = await supabase.from('challenges').update(payload).eq('id', editingId);
         if (error) throw error;
+
+        // Sync with runtime microservice if runtime is enabled
+        if (form.has_runtime) {
+          fetch('/api/admin/challenges/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...payload, challengeId: editingId }),
+          }).catch(() => {});
+        }
       } else {
         const res = await fetch('/api/admin/challenges/create', {
           method: 'POST',
@@ -449,6 +485,10 @@ export default function AdminChallengesPage() {
                       <button onClick={() => openEdit(c)}
                         className="p-1.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors" title="Edit challenge">
                         <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => duplicateChallenge(c)}
+                        className="p-1.5 rounded text-zinc-500 hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors" title="Duplicate challenge">
+                        <Copy className="h-3.5 w-3.5" />
                       </button>
                       <button onClick={() => setDeleteTarget({ id: c.id, title: c.title })}
                         className="p-1.5 rounded text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Delete challenge">

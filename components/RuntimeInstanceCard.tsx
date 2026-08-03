@@ -31,6 +31,26 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
     initialInstance?.timeRemainingSeconds || 0
   );
 
+  // Auto-fetch existing active instance for this user & challenge on mount
+  useEffect(() => {
+    if (initialInstance || !challengeId) return;
+
+    let isMounted = true;
+    fetch('/api/runtime/status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isMounted || !data.success || !Array.isArray(data.data)) return;
+        const active = data.data.find((inst: InstanceData) => inst.challengeId === challengeId && inst.status === 'running');
+        if (active) {
+          setInstance(active);
+          setRemainingSeconds(active.timeRemainingSeconds);
+        }
+      })
+      .catch(() => {});
+
+    return () => { isMounted = false; };
+  }, [challengeId, initialInstance]);
+
   // Sync remaining seconds countdown ticker
   useEffect(() => {
     if (!instance || instance.status !== 'running' || remainingSeconds <= 0) return;

@@ -41,6 +41,16 @@ export interface Challenge {
   first_blood_user_id?: string | null;
   first_blood_team_id?: string | null;
   first_blood_at?: string | null;
+  // Runtime fields
+  has_runtime?: boolean;
+  runtime_template?: string;
+  runtime_folder?: string;
+  runtime_timeout?: number;
+  runtime_memory?: number;
+  runtime_cpu?: number;
+  runtime_pids?: number;
+  runtime_port?: number;
+  runtime_protocol?: string;
 }
 
 export interface Hint {
