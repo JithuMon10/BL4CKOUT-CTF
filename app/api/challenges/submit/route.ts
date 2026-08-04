@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { runtimeClient } from '@/lib/runtime/runtime-client';
 import { createHash, timingSafeEqual } from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -151,6 +152,16 @@ export async function POST(req: NextRequest) {
     });
 
     if (isCorrect) {
+      // Auto-teardown active runtime container instance on successful flag submission
+      try {
+        const userInstances = await runtimeClient.getUserInstances(user.id);
+        const activeInstance = userInstances.find((inst) => inst.challengeId === challengeId);
+        if (activeInstance) {
+          await runtimeClient.terminateInstance({ instanceId: activeInstance.instanceId, userId: user.id });
+        }
+      } catch (teardownErr: any) {
+        console.log('[Submit API] Non-critical instance teardown notice:', teardownErr?.message);
+      }
       // Check if this is the first solve (First Blood)
       const { count: priorSolves } = await supabase
         .from('solves')
