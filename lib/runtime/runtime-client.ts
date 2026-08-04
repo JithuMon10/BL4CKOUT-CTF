@@ -65,8 +65,14 @@ export interface RuntimeApiResponse<T> {
 
 class RuntimeClient {
   private get baseUrl(): string {
-    const url = process.env.RUNTIME_API_URL || 'http://127.0.0.1:4000/api/v1';
-    return url.replace(/\/$/, '');
+    const rawUrl = process.env.RUNTIME_API_URL || 'http://127.0.0.1:4000/api/v1';
+    let cleanUrl = rawUrl.trim().replace(/\/$/, '');
+
+    // Normalize: Ensure /api/v1 prefix is appended if user provided the root tunnel URL
+    if (!cleanUrl.endsWith('/api/v1')) {
+      cleanUrl = `${cleanUrl}/api/v1`;
+    }
+    return cleanUrl;
   }
 
   private get apiKey(): string {
@@ -88,7 +94,8 @@ class RuntimeClient {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      // 15s timeout for Docker container spawning / compilation over remote tunnels
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       const response = await fetch(fullUrl, {
         ...options,
@@ -96,6 +103,7 @@ class RuntimeClient {
         cache: 'no-store',
         signal: controller.signal,
       }).catch((fetchErr) => {
+        console.error(`[RuntimeClient Network Error] Failed fetch for ${fullUrl}:`, fetchErr?.message || fetchErr);
         const error = new Error('Runtime server is currently offline. Please try again later.');
         (error as any).status = 503;
         (error as any).isOffline = true;
@@ -106,6 +114,7 @@ class RuntimeClient {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
+        console.error(`[RuntimeClient Error] HTTP ${response.status} from ${fullUrl}:`, data);
         const errMessage = data.message || data.error || `Runtime API returned HTTP ${response.status}`;
         const err = new Error(errMessage);
         (err as any).status = response.status === 503 ? 503 : response.status;
@@ -116,6 +125,7 @@ class RuntimeClient {
       return data as RuntimeApiResponse<T>;
     } catch (err: any) {
       if (err.name === 'AbortError' || err.code === 'ECONNREFUSED' || err.isOffline || err.status === 503) {
+        console.error(`[RuntimeClient Offline Intercept] Request to ${fullUrl} aborted or offline:`, err?.message || err);
         const offlineErr = new Error('Runtime server is currently offline. Please try again later.');
         (offlineErr as any).status = 503;
         (offlineErr as any).isOffline = true;
@@ -126,15 +136,13 @@ class RuntimeClient {
   }
 
   /**
-   * Spawns a new dynamic container instance for a given challenge and user.
-   */
-  /**
-   * Performs a lightweight 2s health check on the runtime microservice.
+   * Performs a lightweight health check on the runtime microservice.
    */
   public async checkHealth(): Promise<{ online: boolean; message: string }> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      // 8s timeout to allow Cloudflare Tunnel TLS handshake + cold start on Vercel
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
       const response = await fetch(`${this.baseUrl}/health`, {
         method: 'GET',
@@ -146,6 +154,7 @@ class RuntimeClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
+        console.error(`[RuntimeClient Health Check] HTTP ${response.status} from ${this.baseUrl}/health`);
         return { online: false, message: 'Runtime server is currently offline. Please try again later.' };
       }
 
@@ -155,7 +164,8 @@ class RuntimeClient {
         online: isOk,
         message: isOk ? 'Runtime server is online and operational.' : 'Runtime server is currently offline. Please try again later.',
       };
-    } catch {
+    } catch (err: any) {
+      console.error(`[RuntimeClient Health Check] Failed to reach ${this.baseUrl}/health:`, err?.message || err);
       return { online: false, message: 'Runtime server is currently offline. Please try again later.' };
     }
   }
