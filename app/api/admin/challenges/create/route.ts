@@ -1,3 +1,4 @@
+import { generateHumanReadableFolderName } from '@/lib/utils/folder-naming';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { runtimeClient } from '@/lib/runtime/runtime-client';
@@ -55,6 +56,11 @@ export async function POST(req: NextRequest) {
     let targetId = challengeId;
     let inserted: any = null;
 
+    // Fetch existing runtime folders to avoid folder collisions
+    const { data: existingRecords } = await supabase.from('challenges').select('runtime_folder');
+    const existingFolderNames = (existingRecords || []).map((r: any) => r.runtime_folder).filter(Boolean);
+    const computedFolderName = runtime_folder || generateHumanReadableFolderName(title, existingFolderNames);
+
     if (!targetId) {
       // Insert new challenge into Supabase database
       const { data: dbInserted, error: dbError } = await supabase
@@ -71,7 +77,7 @@ export async function POST(req: NextRequest) {
           is_visible: Boolean(is_visible),
           has_runtime: Boolean(has_runtime),
           runtime_template: runtime_template || 'nc',
-          runtime_folder: runtime_folder || null,
+          runtime_folder: computedFolderName,
           runtime_timeout: Number(runtime_timeout) || 30,
           runtime_memory: Number(runtime_memory) || 64,
           runtime_cpu: Number(runtime_cpu) || 0.1,
@@ -102,7 +108,7 @@ export async function POST(req: NextRequest) {
       try {
         await runtimeClient.createChallengeFolder({
           challengeId: targetId,
-          folderName: runtime_folder || inserted.id,
+          folderName: inserted.runtime_folder || computedFolderName,
           title: inserted.title,
           category: inserted.category.toLowerCase(),
           template: runtime_template || 'nc',

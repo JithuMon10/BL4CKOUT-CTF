@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Play, RefreshCw, Square, Copy, Check, Terminal, ExternalLink, Clock } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Play, RefreshCw, Square, Copy, Check, Terminal, ExternalLink, Clock, AlertTriangle } from 'lucide-react';
 
 export interface InstanceData {
   instanceId: string;
@@ -31,25 +31,39 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
     initialInstance?.timeRemainingSeconds || 0
   );
 
-  // Auto-fetch existing active instance for this user & challenge on mount
-  useEffect(() => {
-    if (initialInstance || !challengeId) return;
+  const fetchInstanceStatus = useCallback(() => {
+    if (!challengeId) return;
 
-    let isMounted = true;
     fetch('/api/runtime/status')
       .then((res) => res.json())
       .then((data) => {
-        if (!isMounted || !data.success || !Array.isArray(data.data)) return;
-        const active = data.data.find((inst: InstanceData) => inst.challengeId === challengeId && inst.status === 'running');
+        if (!data.success || !Array.isArray(data.data)) return;
+        const active = data.data.find(
+          (inst: InstanceData) => inst.challengeId === challengeId && inst.status === 'running'
+        );
         if (active) {
           setInstance(active);
           setRemainingSeconds(active.timeRemainingSeconds);
+          setErrorMsg(null);
+        } else {
+          setInstance(null);
+          setRemainingSeconds(0);
         }
       })
       .catch(() => {});
+  }, [challengeId]);
 
-    return () => { isMounted = false; };
-  }, [challengeId, initialInstance]);
+  // Initial fetch on mount & subscribe to global status updates (e.g. solve event)
+  useEffect(() => {
+    fetchInstanceStatus();
+
+    const handleGlobalUpdate = () => {
+      fetchInstanceStatus();
+    };
+
+    window.addEventListener('runtime-instance-updated', handleGlobalUpdate);
+    return () => window.removeEventListener('runtime-instance-updated', handleGlobalUpdate);
+  }, [challengeId, fetchInstanceStatus]);
 
   // Sync remaining seconds countdown ticker
   useEffect(() => {
@@ -89,8 +103,9 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
       }
       setInstance(data.data);
       setRemainingSeconds(data.data.timeRemainingSeconds);
+      window.dispatchEvent(new CustomEvent('runtime-instance-updated'));
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to start instance.');
+      setErrorMsg(err.message || 'Failed to start instance. Check Docker runtime microservice.');
     } finally {
       setLoading(false);
     }
@@ -112,6 +127,7 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
       }
       setInstance(data.data);
       setRemainingSeconds(data.data.timeRemainingSeconds);
+      window.dispatchEvent(new CustomEvent('runtime-instance-updated'));
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to extend instance.');
     } finally {
@@ -135,6 +151,7 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
       }
       setInstance(null);
       setRemainingSeconds(0);
+      window.dispatchEvent(new CustomEvent('runtime-instance-updated'));
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to stop instance.');
     } finally {
@@ -159,28 +176,37 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
           <h3 className="font-semibold text-lg text-slate-100 tracking-wide">Interactive Instance</h3>
         </div>
         <div className="flex items-center gap-2">
-          {isRunning ? (
+          {loading ? (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 animate-pulse">
+              <RefreshCw className="w-3 h-3 animate-spin mr-1.5" />
+              Starting...
+            </span>
+          ) : isRunning ? (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-1.5" />
-              🟢 Running
+              🟢 Running (Port {instance.port})
             </span>
           ) : (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              <span className="w-2 h-2 rounded-full bg-rose-400 mr-1.5" />
-              🔴 Expired / Off
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <span className="w-2 h-2 rounded-full bg-blue-400 mr-1.5" />
+              🔵 Ready
             </span>
           )}
         </div>
       </div>
 
       {errorMsg && (
-        <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-xs text-rose-300">
-          {errorMsg}
+        <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-xs text-rose-300 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-semibold block mb-0.5">Runtime Error</span>
+            {errorMsg}
+          </div>
         </div>
       )}
 
       {!isRunning ? (
-        <div className="text-center py-6">
+        <div className="text-center py-5">
           <p className="text-slate-400 text-sm mb-4">
             Launch a dedicated dynamic Docker container to solve this challenge interactively.
           </p>
@@ -190,15 +216,18 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
             className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-sm transition-all duration-200 shadow-lg shadow-cyan-950/40 disabled:opacity-50"
           >
             {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}
-            Start Instance
+            {loading ? 'Starting...' : 'Start Instance'}
           </button>
         </div>
       ) : (
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
-              Connection Command
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
+                Connection Command
+              </label>
+              <span className="text-xs font-mono text-cyan-400">Host Port: {instance.port}</span>
+            </div>
             <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 rounded-lg p-2.5 font-mono text-sm">
               <span className="text-cyan-300 flex-1 truncate select-all">{instance.connectionCommand}</span>
               <button
@@ -222,7 +251,7 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between pt-2 border-t border-slate-800/60">
             <div className="flex items-center gap-2 text-slate-300 font-mono text-sm">
               <Clock className="w-4 h-4 text-cyan-400" />
               <span>Expires in:</span>

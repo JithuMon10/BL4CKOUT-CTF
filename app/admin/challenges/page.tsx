@@ -71,6 +71,7 @@ export default function AdminChallengesPage() {
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
   // Hints Modal
+  const [compilingIds, setCompilingIds] = useState<Set<string>>(new Set());
   const [hintsModalOpen, setHintsModalOpen] = useState(false);
   const [activeChallengeForHints, setActiveChallengeForHints] = useState<any | null>(null);
   const [hintsList, setHintsList] = useState<any[]>([]);
@@ -147,7 +148,31 @@ export default function AdminChallengesPage() {
   };
 
   // ── Challenge CRUD ─────────────────────────────────────
-    const duplicateChallenge = (c: any) => {
+    
+  const handleCompileChallenge = async (c: any) => {
+    setCompilingIds((prev) => new Set([...prev, c.id]));
+    try {
+      const res = await fetch('/api/admin/challenges/compile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challengeId: c.id, folderName: c.runtime_folder || c.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Compilation failed');
+      showToast('success', data.message || `Challenge "${c.title}" compiled successfully.`);
+      await loadChallenges();
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to compile Docker image.');
+    } finally {
+      setCompilingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(c.id);
+        return next;
+      });
+    }
+  };
+
+  const duplicateChallenge = (c: any) => {
     setEditingId(null);
     setForm({
       title: `${c.title} (Copy)`,
@@ -486,6 +511,12 @@ export default function AdminChallengesPage() {
                         className="p-1.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors" title="Edit challenge">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
+                      {c.has_runtime && (
+                        <button onClick={() => handleCompileChallenge(c)} disabled={compilingIds.has(c.id)}
+                          className="p-1.5 rounded text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors disabled:opacity-50" title="Compile / Rebuild Docker image">
+                          <Droplets className={`h-3.5 w-3.5 ${compilingIds.has(c.id) ? 'animate-spin' : ''}`} />
+                        </button>
+                      )}
                       <button onClick={() => duplicateChallenge(c)}
                         className="p-1.5 rounded text-zinc-500 hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors" title="Duplicate challenge">
                         <Copy className="h-3.5 w-3.5" />

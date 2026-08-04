@@ -217,6 +217,7 @@ export default function ChallengesPage() {
             : data.message,
         });
         setSolvedIds((prev) => new Set([...prev, selectedChallenge.id]));
+        if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('runtime-instance-updated'));
       } else {
         setFeedback({ type: data.alreadySolved ? 'info' : 'error', message: data.message });
       }
@@ -436,8 +437,7 @@ export default function ChallengesPage() {
             {/* Interactive Container Runtime Section */}
             {(selectedChallenge.has_runtime === true || (selectedChallenge as any).has_runtime === 'true' || Boolean((selectedChallenge as any).runtime_template) || Boolean((selectedChallenge as any).runtime_folder) || selectedChallenge.id === 'hello-nc') && (
               <div>
-                <RuntimeInstanceCard challengeId={selectedChallenge.id} />
-              </div>
+                              </div>
             )}
 
             {/* Attachment */}
@@ -503,6 +503,14 @@ export default function ChallengesPage() {
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+                        {/* Runtime Interactive Instance */}
+            {selectedChallenge.has_runtime && (
+              <div className="pt-1">
+                <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Runtime Instance</h4>
+                <RuntimeInstanceCard challengeId={selectedChallenge.id} />
               </div>
             )}
 

@@ -181,6 +181,17 @@ class RuntimeClient {
   /**
    * Generates a new dynamic challenge folder and Docker image on the runtime server.
    */
+  /**
+   * Rebuilds/compiles the Docker image for a dynamic challenge on the runtime microservice.
+   */
+  public async compileChallenge(payload: { challengeId: string; folderName?: string }): Promise<any> {
+    const res = await this.request<any>('/challenges/compile', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res;
+  }
+
   public async createChallengeFolder(payload: CreateChallengeFolderPayload): Promise<any> {
     const res = await this.request<any>('/challenges/create', {
       method: 'POST',
