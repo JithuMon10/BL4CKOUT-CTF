@@ -1,5 +1,7 @@
 'use client';
 
+import RuntimeStatusBadge from '@/components/RuntimeStatusBadge';
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -130,7 +132,8 @@ export default function Navbar() {
         )}
 
         {/* Right Side */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <RuntimeStatusBadge className="hidden sm:inline-flex" />
           {user ? (
             <div className="hidden md:flex items-center gap-3">
               <Link

@@ -44,9 +44,8 @@ export async function POST(req: NextRequest) {
       data: instance,
     });
   } catch (error: any) {
-    return NextResponse.json(
-      { success: false, message: error.message || 'Failed to spawn instance.' },
-      { status: 500 }
-    );
+    const status = error.status === 503 || error.isOffline ? 503 : (error.status || 500);
+    const message = error.isOffline || status === 503 ? 'Runtime server is currently offline. Please try again later.' : (error.message || 'Failed to spawn instance.');
+    return NextResponse.json({ success: false, message }, { status });
   }
 }

@@ -87,28 +87,79 @@ class RuntimeClient {
     };
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
       const response = await fetch(fullUrl, {
         ...options,
         headers,
         cache: 'no-store',
+        signal: controller.signal,
+      }).catch((fetchErr) => {
+        const error = new Error('Runtime server is currently offline. Please try again later.');
+        (error as any).status = 503;
+        (error as any).isOffline = true;
+        throw error;
       });
 
-      const data = await response.json();
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(data.message || data.error || `Runtime API returned HTTP ${response.status}`);
+        const data = await response.json().catch(() => ({}));
+        const errMessage = data.message || data.error || `Runtime API returned HTTP ${response.status}`;
+        const err = new Error(errMessage);
+        (err as any).status = response.status === 503 ? 503 : response.status;
+        throw err;
       }
 
+      const data = await response.json();
       return data as RuntimeApiResponse<T>;
     } catch (err: any) {
-      console.error(`[RuntimeClient] Fetch error for ${endpoint}:`, err.message);
-      throw new Error(err.message || 'Failed to communicate with BL4CKOUT Runtime service.');
+      if (err.name === 'AbortError' || err.code === 'ECONNREFUSED' || err.isOffline || err.status === 503) {
+        const offlineErr = new Error('Runtime server is currently offline. Please try again later.');
+        (offlineErr as any).status = 503;
+        (offlineErr as any).isOffline = true;
+        throw offlineErr;
+      }
+      throw err;
     }
   }
 
   /**
    * Spawns a new dynamic container instance for a given challenge and user.
    */
+  /**
+   * Performs a lightweight 2s health check on the runtime microservice.
+   */
+  public async checkHealth(): Promise<{ online: boolean; message: string }> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+      const response = await fetch(`${this.baseUrl}/health`, {
+        method: 'GET',
+        headers: { 'X-API-Key': this.apiKey },
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return { online: false, message: 'Runtime server is currently offline. Please try again later.' };
+      }
+
+      const data = await response.json();
+      const isOk = data.status === 'ok' || data.success === true;
+      return {
+        online: isOk,
+        message: isOk ? 'Runtime server is online and operational.' : 'Runtime server is currently offline. Please try again later.',
+      };
+    } catch {
+      return { online: false, message: 'Runtime server is currently offline. Please try again later.' };
+    }
+  }
+
   public async spawnInstance(payload: SpawnInstancePayload): Promise<RuntimeInstanceResponse> {
     const res = await this.request<RuntimeInstanceResponse>('/instances/spawn', {
       method: 'POST',

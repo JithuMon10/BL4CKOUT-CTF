@@ -1,5 +1,7 @@
 'use client';
 
+import RuntimeStatusBadge from '@/components/RuntimeStatusBadge';
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Play, RefreshCw, Square, Copy, Check, Terminal, ExternalLink, Clock, AlertTriangle } from 'lucide-react';
 
@@ -27,6 +29,7 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
   const [loading, setLoading] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState<boolean>(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(
     initialInstance?.timeRemainingSeconds || 0
   );
@@ -35,9 +38,17 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
     if (!challengeId) return;
 
     fetch('/api/runtime/status')
-      .then((res) => res.json())
+      .then((res) => {
+        if (res.status === 503) {
+          setIsOffline(true);
+          setErrorMsg('Runtime server is currently offline. Please try again later.');
+          return null;
+        }
+        setIsOffline(false);
+        return res.json();
+      })
       .then((data) => {
-        if (!data.success || !Array.isArray(data.data)) return;
+        if (!data || !data.success || !Array.isArray(data.data)) return;
         const active = data.data.find(
           (inst: InstanceData) => inst.challengeId === challengeId && inst.status === 'running'
         );
@@ -50,7 +61,10 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
           setRemainingSeconds(0);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setIsOffline(true);
+        setErrorMsg('Runtime server is currently offline. Please try again later.');
+      });
   }, [challengeId]);
 
   // Initial fetch on mount & subscribe to global status updates (e.g. solve event)
@@ -176,6 +190,7 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
           <h3 className="font-semibold text-lg text-slate-100 tracking-wide">Interactive Instance</h3>
         </div>
         <div className="flex items-center gap-2">
+          <RuntimeStatusBadge />
           {loading ? (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 animate-pulse">
               <RefreshCw className="w-3 h-3 animate-spin mr-1.5" />

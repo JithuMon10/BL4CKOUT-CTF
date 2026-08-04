@@ -36,9 +36,8 @@ export async function POST(req: NextRequest) {
       message: terminated ? 'Instance terminated successfully.' : 'Instance not found.',
     });
   } catch (error: any) {
-    return NextResponse.json(
-      { success: false, message: error.message || 'Failed to terminate instance.' },
-      { status: 500 }
-    );
+    const status = error.status === 503 || error.isOffline ? 503 : (error.status || 500);
+    const message = error.isOffline || status === 503 ? 'Runtime server is currently offline. Please try again later.' : (error.message || 'Failed to terminate instance.');
+    return NextResponse.json({ success: false, message }, { status });
   }
 }
