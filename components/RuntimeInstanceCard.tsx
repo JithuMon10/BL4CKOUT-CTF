@@ -1,8 +1,10 @@
 'use client';
 
 import RuntimeStatusBadge from '@/components/RuntimeStatusBadge';
-import React, { useState, useEffect, useCallback } from 'react';
-import { Play, RefreshCw, Square, Copy, Check, Terminal, ExternalLink, Clock, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { Play, RefreshCw, Square, Copy, Check, Terminal, ExternalLink, Clock, AlertTriangle, Monitor } from 'lucide-react';
+
+const WebTerminal = lazy(() => import('@/components/WebTerminal'));
 
 export interface InstanceData {
   instanceId: string;
@@ -13,6 +15,8 @@ export interface InstanceData {
   port: number;
   protocol: 'nc' | 'http' | 'tcp';
   connectionCommand: string;
+  webUrl?: string;
+  terminalUrl?: string;
   createdAt: string;
   expiresAt: string;
   timeRemainingSeconds: number;
@@ -29,6 +33,7 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
   const [copied, setCopied] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState<boolean>(false);
+  const [showTerminal, setShowTerminal] = useState<boolean>(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(
     initialInstance?.timeRemainingSeconds || 0
   );
@@ -259,9 +264,9 @@ export function RuntimeInstanceCard({ challengeId, initialInstance }: RuntimeIns
               >
                 {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
-              {instance.protocol === 'http' && (
+              {instance.webUrl && (
                 <a
-                  href={instance.connectionCommand}
+                  href={instance.webUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="p-1.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 transition-colors"

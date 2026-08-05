@@ -16,6 +16,8 @@ export interface RuntimeInstanceResponse {
   port: number;
   protocol: 'nc' | 'http' | 'tcp';
   connectionCommand: string;
+  webUrl?: string;
+  terminalUrl?: string;
   createdAt: string;
   expiresAt: string;
   timeRemainingSeconds: number;
@@ -89,6 +91,7 @@ class RuntimeClient {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-API-Key': this.apiKey,
+      'ngrok-skip-browser-warning': 'true',
       ...(options.headers as Record<string, string> || {}),
     };
 
@@ -146,7 +149,10 @@ class RuntimeClient {
 
       const response = await fetch(`${this.baseUrl}/health`, {
         method: 'GET',
-        headers: { 'X-API-Key': this.apiKey },
+        headers: { 
+          'X-API-Key': this.apiKey,
+          'ngrok-skip-browser-warning': 'true'
+        },
         cache: 'no-store',
         signal: controller.signal,
       });
